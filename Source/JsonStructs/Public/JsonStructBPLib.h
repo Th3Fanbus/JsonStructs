@@ -2,6 +2,8 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "Kismet/DataTableFunctionLibrary.h"
+#include "BPJsonObject.h"
 #include "JsonStructBPLib.generated.h"
 
 /**
@@ -19,6 +21,11 @@ public:
 	static void convertJsonValueToUProperty(TSharedPtr<FJsonValue> json, UProperty* prop, void* ptrToProp);
 	static void InternalGetStructAsJson(UStructProperty *Structure, void * StructurePtr, FString &String);
 
+
+	UFUNCTION(BlueprintCallable, Category = "JsonStructs")
+	static bool FillDataTableFromJSONString(UDataTable * DataTable, const FString & InString);
+
+	TArray<FString> CreateTableFromJSONString(const FString& InString);
 
 	// Json String from Struct
 	UFUNCTION(BlueprintCallable, Category = "JsonStructs", CustomThunk, meta = (CustomStructureParam = "Structure"))
@@ -55,4 +62,38 @@ public:
 		P_FINISH;
 		InternalGetStructAsJson(StructureProperty, StructurePtr, String);
 	}
+
+
+
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "A JsonValue String Conversion", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
+		static FString Conv_BPJsonObjectValueToString(UBPJsonObjectValue * Value);
+	
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Json Value to Float", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
+		static float Conv_BPJsonObjectValueToFloat(UBPJsonObjectValue * Value);
+
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Json Value to Float", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
+		static int32 Conv_BPJsonObjectValueToInt(UBPJsonObjectValue * Value);
+
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Json Value to Bool", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
+		static bool Conv_BPJsonObjectValueToBool(UBPJsonObjectValue * Value);
+
+
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "A JsonValue String Conversion", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
+		static UBPJsonObjectValue * Conv_StringToBPJsonObjectValue(FString & Value);
+
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Float to JsonValue", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
+		static UBPJsonObjectValue * Conv_FloatToBPJsonObjectValue(float & Value);
+	
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Int to JsonValue", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
+		static UBPJsonObjectValue * Conv_IntToBPJsonObjectValue(int32 & Value);
+	
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Bool to JsonValue", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
+		static UBPJsonObjectValue * Conv_BoolToBPJsonObjectValue(bool & Value);
+
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "JsonObject to JsonObjectValues", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
+		static TArray<UBPJsonObjectValue *>  Conv_BPJsonObjectToBPJsonObjectValue(UBPJsonObject * Value);
+
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "JsonObjectValue to JsonObject", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
+		static UBPJsonObject * Conv_UBPJsonObjectValueToBPJsonObject(UBPJsonObjectValue * Value);
+
 };

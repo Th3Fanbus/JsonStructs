@@ -1,4 +1,5 @@
 #include "JsonStructBPLib.h"
+#include "BPJsonObjectValue.h"
 
 
 TSharedPtr<FJsonObject> UJsonStructBPLib::convertUStructToJsonObject(UStruct* Struct, void* ptrToStruct) {
@@ -172,4 +173,109 @@ void UJsonStructBPLib::InternalGetStructAsJson(UStructProperty *Structure, void*
 	TSharedRef<TJsonWriter<wchar_t, TPrettyJsonPrintPolicy<wchar_t>>> JsonWriter = TJsonWriterFactory<wchar_t, TPrettyJsonPrintPolicy<wchar_t>>::Create(&write); //Our Writer Factory
 	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), JsonWriter);
 	String = write;
+}
+
+
+bool UJsonStructBPLib::FillDataTableFromJSONString(UDataTable* DataTable, const FString& InString)
+{
+	if (!DataTable)
+	{
+		UE_LOG(LogDataTable, Error, TEXT("Can't fill an invalid DataTable."));
+		return false;
+	}
+
+	bool bResult = true;
+	if (InString.Len() == 0)
+	{
+		DataTable->EmptyTable();
+	}
+	else
+	{
+		TArray<FString> Errors = DataTable->CreateTableFromJSONString(InString);
+		if (Errors.Num())
+		{
+			for (const FString& Error : Errors)
+			{
+				UE_LOG(LogDataTable, Warning, TEXT("%s"), *Error);
+			}
+		}
+		bResult = Errors.Num() == 0;
+	}
+	return bResult;
+}
+
+FString UJsonStructBPLib::Conv_BPJsonObjectValueToString(UBPJsonObjectValue * Value)
+{
+	return Value->AsString();
+}
+
+float UJsonStructBPLib::Conv_BPJsonObjectValueToFloat(UBPJsonObjectValue * Value)
+{
+	return Value->AsNumber();
+}
+
+int32 UJsonStructBPLib::Conv_BPJsonObjectValueToInt(UBPJsonObjectValue * Value)
+{
+	return int32(Value->AsNumber());
+}
+
+bool UJsonStructBPLib::Conv_BPJsonObjectValueToBool(UBPJsonObjectValue * Value)
+{
+	return Value->AsBoolean();
+}
+
+UBPJsonObjectValue * UJsonStructBPLib::Conv_StringToBPJsonObjectValue(FString & Value)
+{
+	TSharedPtr<FJsonValue> val = TSharedPtr<FJsonValue>(new FJsonValueString(Value));
+	UBPJsonObjectValue * out = NewObject<UBPJsonObjectValue>();
+	out->Value = val;
+	return out;
+}
+
+UBPJsonObjectValue * UJsonStructBPLib::Conv_FloatToBPJsonObjectValue(float & Value)
+{
+	TSharedPtr<FJsonValue> val = TSharedPtr<FJsonValue>(new FJsonValueNumber(Value));
+	UBPJsonObjectValue * out = NewObject<UBPJsonObjectValue>();
+	out->Value = val;
+	return out;
+}
+
+UBPJsonObjectValue * UJsonStructBPLib::Conv_IntToBPJsonObjectValue(int32 & Value)
+{
+	TSharedPtr<FJsonValue> val = TSharedPtr<FJsonValue>(new FJsonValueNumber(Value));
+	UBPJsonObjectValue * out = NewObject<UBPJsonObjectValue>();
+	out->Value = val;
+	return out;
+}
+
+UBPJsonObjectValue * UJsonStructBPLib::Conv_BoolToBPJsonObjectValue(bool & Value)
+{
+	TSharedPtr<FJsonValue> val = TSharedPtr<FJsonValue>(new FJsonValueBoolean(Value));
+	UBPJsonObjectValue * out = NewObject<UBPJsonObjectValue>();
+	out->Value = val;
+	return out;
+}
+
+TArray<UBPJsonObjectValue *> UJsonStructBPLib::Conv_BPJsonObjectToBPJsonObjectValue(UBPJsonObject * Value)
+{
+	TArray<UBPJsonObjectValue *> out;
+	if (!Value)
+		return out;
+	if (!Value->InnerObj)
+		return out;
+	for (auto  i : Value->InnerObj->Values)
+	{
+		UBPJsonObjectValue * Obj = NewObject<UBPJsonObjectValue>();
+		Obj->Value = i.Value;
+		out.Add(Obj);
+	}
+	return out;
+}
+
+UBPJsonObject * UJsonStructBPLib::Conv_UBPJsonObjectValueToBPJsonObject(UBPJsonObjectValue * Value)
+{
+	if (!Value)
+		return nullptr;
+
+	return Value->AsObject();
 }
