@@ -1,9 +1,9 @@
-// ILikeBanas
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
+#include "Dom/JsonObject.h"
+#include "Dom/JsonValue.h" 
 #include "BPJsonObjectValue.generated.h"
 
 /**
