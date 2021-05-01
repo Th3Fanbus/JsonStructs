@@ -45,7 +45,7 @@ TSharedPtr<FJsonObject> UJsonStructBPLib::convertUStructToJsonObject(UStruct* St
 	return obj;
 }
 
-void UJsonStructBPLib::convertJsonObjectToUStruct(TSharedPtr<FJsonObject> json, UStruct* Struct, void* ptrToStruct) {
+void UJsonStructBPLib::convertJsonObjectToUStruct(TSharedPtr<FJsonObject> json, UStruct* Struct, void* ptrToStruct,UObject* Outer) {
 	if (!json)
 		return;
 	auto obj = TSharedPtr<FJsonObject>(new FJsonObject());
@@ -61,7 +61,7 @@ void UJsonStructBPLib::convertJsonObjectToUStruct(TSharedPtr<FJsonObject> json, 
 }
 
 
-void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, FProperty* prop, void* ptrToProp) {
+void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, FProperty* prop, void* ptrToProp, UObject* Outer) {
 	if (auto strProp = Cast<FStrProperty>(prop)) {
 		strProp->SetPropertyValue(ptrToProp, json->AsString());
 	}
@@ -171,7 +171,7 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 		TArray<TSharedPtr<FJsonValue>> jsonArr = json->AsArray();
 		for (int i = 0; i < jsonArr.Num(); i++) {
 			int64 valueIndex = helper.AddValue();
-			convertJsonValueToFProperty(jsonArr[i], aProp->Inner, helper.GetRawPtr(valueIndex));
+			convertJsonValueToFProperty(jsonArr[i], aProp->Inner, helper.GetRawPtr(valueIndex),Outer);
 		}
 	}
 	else if (auto mProp = Cast<FMapProperty>(prop)) {
@@ -188,8 +188,8 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 				{
 					TSharedPtr<FJsonValue> keyvalue = jsonArr[i]->AsObject()->TryGetField("key");
 					TSharedPtr<FJsonValue> valuevalue = jsonArr[i]->AsObject()->TryGetField("value");
-					convertJsonValueToFProperty(keyvalue, mProp->KeyProp, mapPtr);
-					convertJsonValueToFProperty(valuevalue, mProp->ValueProp, mapPtr + MapHelper.MapLayout.ValueOffset);
+					convertJsonValueToFProperty(keyvalue, mProp->KeyProp, mapPtr,Outer);
+					convertJsonValueToFProperty(valuevalue, mProp->ValueProp, mapPtr + MapHelper.MapLayout.ValueOffset, Outer);
 				}
 				else
 				{
@@ -204,13 +204,12 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 
 	}
 	else if (auto cProp = Cast<FClassProperty>(prop)) {
-		UObject* LoadedObject; UClass * CastResult = nullptr;
+		UObject* LoadedObject = nullptr; UClass * CastResult = nullptr;
 		if (FPackageName::IsValidObjectPath(*json->AsString()))
 		{
 			LoadedObject = LoadObject<UClass>(NULL, *json->AsString());
-			CastResult = Cast<UClass>(LoadedObject);
 			// Failsafe for script classes with BP Stubs
-			if (!CastResult)
+			if (!LoadedObject)
 			{
 				FString JsonString = json->AsString();
 				FString Left;
@@ -221,12 +220,12 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 				if (JsonString != "")
 				{
 					UE_LOG(LogTemp, Warning, TEXT("FailSafe Class Loading %s") , *json->AsString());
-					CastResult = FindClassByName(Right);
+					LoadedObject = FindClassByName(Right);
 				}
 			}
 		}
 		
-		cProp->SetPropertyValue(ptrToProp, CastResult);
+		cProp->SetPropertyValue(ptrToProp, LoadedObject);
 	}
 	else if (FWeakObjectProperty* WeakObjectProperty = CastField<FWeakObjectProperty>(prop))
 	{
@@ -258,10 +257,16 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 
 				if (valuevalue->Type == EJson::Object)
 				{
-					UObject* LoadedObject = FSoftObjectPath(keyvalue->AsString()).TryLoad();
-					UClass* BaseClass = LoadedObject->GetClass();
-					convertJsonObjectToUStruct(valuevalue->AsObject(), BaseClass, BaseClass->GetDefaultObject());
-					uProp->SetObjectPropertyValue(ptrToProp, BaseClass->GetDefaultObject());
+					UObject* LoadedObject = FSoftClassPath(keyvalue->AsString()).TryLoad();
+					FString PathName = LoadedObject->GetPathName();
+					if (!PathName.EndsWith("_C")) {
+						PathName.Append("_C");
+					}
+					UClass* InnerBPClass = LoadObject<UClass>(NULL, *PathName);
+					UObject * Constructed = NewObject<UObject>(Outer->GetOutermost(), InnerBPClass, *InnerBPClass->GetName(), EObjectFlags::RF_NoFlags);
+
+					convertJsonObjectToUStruct(valuevalue->AsObject(), InnerBPClass, Constructed);
+					uProp->SetObjectPropertyValue(ptrToProp, Constructed);
 				}
 				else if (valuevalue->Type == EJson::String)
 				{
@@ -287,7 +292,7 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 		const FMulticastScriptDelegate* Value = CastProp->GetMulticastDelegate(ptrToProp);
 	}
 	else if (auto sProp = Cast<FStructProperty>(prop)) {
-		convertJsonObjectToUStruct(json->AsObject(), sProp->Struct, ptrToProp);	
+		convertJsonObjectToUStruct(json->AsObject(), sProp->Struct, ptrToProp, Outer);
 	}
 	else
 	{
@@ -347,7 +352,7 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 		auto& arr = aProp->GetPropertyValue(ptrToProp);
 		TArray<TSharedPtr<FJsonValue>> jsonArr;
 		for (int i = 0; i < arr.Num(); i++) {
-			jsonArr.Add(convertUPropToJsonValue(aProp->Inner, (void*)((size_t)arr.GetData() + i * aProp->Inner->ElementSize)));
+			jsonArr.Add(convertUPropToJsonValue(aProp->Inner, (void*)((size_t)arr.GetData() + i * aProp->Inner->ElementSize), RemoveGUID,includeObjects));
 		}
 		return TSharedPtr<FJsonValue>(new FJsonValueArray(jsonArr));
 	}
@@ -399,17 +404,11 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 					return TSharedPtr<FJsonValue>(Obj);
 				}
 			}
-			if (!BaseClass->HasAllClassFlags(EClassFlags::CLASS_DefaultToInstanced))
-			{
-				JsonObject->SetField("object", value);
-				TSharedPtr<FJsonValueObject> Obj = TSharedPtr<FJsonValueObject>(new FJsonValueObject(JsonObject));
-				return TSharedPtr<FJsonValue>(Obj);
-			}
-			
-			if (includeObjects) {
-				TSharedPtr<FJsonObject> Obj = convertUStructToJsonObject(BaseClass, BaseClass->GetDefaultObject(), false, includeObjects);
+
+			if (includeObjects && BaseClass->HasAnyClassFlags(EClassFlags::CLASS_DefaultToInstanced)) {
+				TSharedPtr<FJsonObject> Obj = convertUStructToJsonObject(BaseClass, oProp->GetPropertyValue(ptrToProp), false, includeObjects);
 				JsonObject->SetField("object", TSharedPtr<FJsonValue>(new FJsonValueObject(Obj)));
-				return TSharedPtr<FJsonValue>(new FJsonValueObject(Obj));
+				return TSharedPtr<FJsonValue>(TSharedPtr<FJsonValueObject>(new FJsonValueObject(JsonObject)));
 			}
 			else
 			{
@@ -426,8 +425,8 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 		FScriptMapHelper arr(mProp, ptrToProp);
 		TArray<TSharedPtr<FJsonValue>> jsonArr;
 		for (int i = 0; i < arr.Num(); i++) {
-			TSharedPtr<FJsonValue> key = (convertUPropToJsonValue(mProp->KeyProp, arr.GetKeyPtr(i)));
-			TSharedPtr<FJsonValue> value = (convertUPropToJsonValue(mProp->ValueProp, arr.GetValuePtr(i)));
+			TSharedPtr<FJsonValue> key = convertUPropToJsonValue(mProp->KeyProp, arr.GetKeyPtr(i),RemoveGUID, includeObjects);
+			TSharedPtr<FJsonValue> value = convertUPropToJsonValue(mProp->ValueProp, arr.GetValuePtr(i), RemoveGUID, includeObjects);
 			TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
 			JsonObject->SetField("key", key);
 			JsonObject->SetField("value", value);
@@ -437,7 +436,7 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 		return TSharedPtr<FJsonValue>(new FJsonValueArray(jsonArr));
 	}
 	else if (FStructProperty* sProp = Cast<FStructProperty>(prop)) {
-		return TSharedPtr<FJsonValue>(new FJsonValueObject(convertUStructToJsonObject(sProp->Struct, ptrToProp,RemoveGUID)));
+		return TSharedPtr<FJsonValue>(new FJsonValueObject(convertUStructToJsonObject(sProp->Struct, ptrToProp, RemoveGUID, includeObjects)));
 	}
 	else if (FMulticastSparseDelegateProperty* CastProp = CastField<FMulticastSparseDelegateProperty>(prop))
 	{
@@ -607,13 +606,13 @@ UClass *  UJsonStructBPLib::SetClassDefaultsFromJsonString(FString String, UClas
 	Serializer.Deserialize(reader, result);
 	if (!result.IsValid())
 		return nullptr;
-
+	UObject * Object = BaseClass->GetDefaultObject();
 	for (auto prop = TFieldIterator<FProperty>(BaseClass); prop; ++prop) {
 		FString FieldName;
 		FieldName = prop->GetName();
 		auto field = result->TryGetField(FieldName);
 		if (!field.IsValid()) continue;
-		convertJsonValueToFProperty(field, *prop, prop->ContainerPtrToValuePtr<void>(BaseClass->GetDefaultObject()));
+		convertJsonValueToFProperty(field, *prop, prop->ContainerPtrToValuePtr<void>(Object), BaseClass);
 	}
 	return BaseClass;
 }
