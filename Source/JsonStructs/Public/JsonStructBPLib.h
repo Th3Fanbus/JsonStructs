@@ -45,10 +45,10 @@ public:
 	static FString RemoveUStructGuid(FString String);
 	static UClass * FindClassByName(FString ClassNameInput);
 
-	static TSharedPtr<FJsonValue> convertUPropToJsonValue(FProperty* prop, void* ptrToProp, bool RemoveGUID = false, bool includeObjects = false);
-	static TSharedPtr<FJsonObject> convertUStructToJsonObject(UStruct* Struct, void* ptrToStruct, bool RemoveGUID =  false, bool includeObjects = false);
-	static void convertJsonObjectToUStruct(TSharedPtr<FJsonObject> json, UStruct* Struct, void* ptrToStruct, UObject* Outer= nullptr);
-	static void convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, FProperty* prop, void* ptrToProp, UObject* Outer = nullptr);
+	static TSharedPtr<FJsonValue> convertUPropToJsonValue(FProperty* prop, void* ptrToProp, bool includeObjects, TArray<UObject*>& RecursedObjects);
+	static TSharedPtr<FJsonObject> convertUStructToJsonObject(UStruct* Struct, void* ptrToStruct, bool includeObjects, TArray<UObject*>& RecursedObjects);
+	static void convertJsonObjectToUStruct(TSharedPtr<FJsonObject> json, UStruct* Struct, void* ptrToStruct, UObject* Outer);
+	static void convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, FProperty* prop, void* ptrToProp, UObject* Outer);
 	static void InternalGetStructAsJson(FStructProperty *Structure, void * StructurePtr, FString &String, bool RemoveGUID = false, bool includeObjects = false);
 
 	static void InternalGetStructAsJsonForTable(FStructProperty * Structure, void * StructurePtr, FString & String, bool RemoveGUID, FString Name);
@@ -100,7 +100,7 @@ public:
 		FJsonSerializer Serializer;
 		TSharedPtr<FJsonObject> result;
 		Serializer.Deserialize(reader, result);
-		convertJsonObjectToUStruct(result, Struct->Struct, StructPtr);
+		convertJsonObjectToUStruct(result, Struct->Struct, StructPtr,nullptr);
 	}
 	DECLARE_FUNCTION(execGetJsonFromStruct)
 	{
@@ -118,8 +118,12 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
-		static FString ClassDefaultsToJsonString(UClass * Value,bool Filtered = false ,bool ObjectRecursive = false);
-	
+		static FString ClassDefaultsToJsonString(UClass * Value ,bool ObjectRecursive = false);
+
+	UFUNCTION(BlueprintCallable, Category = "Utilities")
+		static FString CDOFieldsToJsonString(TArray<FString> Fields, UClass * Value, bool ObjectRecursive = false, bool Exclude = false);
+
+		
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
 	static FString GetPackage(UClass* Class);
 	

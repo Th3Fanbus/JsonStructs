@@ -131,7 +131,85 @@ bool UBPJsonObjectValue::AsBoolean()
 	}
 	
 	return Value.Get()->AsBool();
-};
+}
+
+void UBPJsonObjectValue::SetValueFromNumber(int32 Number)
+{
+	if (Value->Type == EJson::Array) {
+
+	}
+	else if (Value->Type == EJson::String)
+	{
+		TSharedPtr<FJsonValueString> JsonObject = TSharedPtr<FJsonValueString>(new FJsonValueString(FString::FromInt(Number)));
+		Value = JsonObject;
+	}
+	else if (Value->Type == EJson::Number)
+	{
+		TSharedPtr<FJsonValueNumber> JsonObject = TSharedPtr<FJsonValueNumber>(new FJsonValueNumber(Number));
+		Value = JsonObject;
+	}
+	else if (Value->Type == EJson::Boolean)
+	{
+		TSharedPtr<FJsonValueBoolean> JsonObject = TSharedPtr<FJsonValueBoolean>(new FJsonValueBoolean(bool(Number)));
+		Value = JsonObject;
+	}
+	else if (Value->Type == EJson::Object)
+	{
+
+	}
+}
+
+void UBPJsonObjectValue::SetValueFromString(FString String)
+{
+	if (Value->Type == EJson::Array) {
+
+	}
+	else if (Value->Type == EJson::String)
+	{
+		TSharedPtr<FJsonValueString> JsonObject = TSharedPtr<FJsonValueString>(new FJsonValueString(String));
+		Value = JsonObject;
+	}
+	else if (Value->Type == EJson::Number)
+	{
+		if (!String.IsNumeric())
+			return;
+
+		int32 Property = int32(FCString::Atof(*String));
+
+		TSharedPtr<FJsonValueNumber> JsonObject = TSharedPtr<FJsonValueNumber>(new FJsonValueNumber(Property));
+		Value = JsonObject;
+	}
+	else if (Value->Type == EJson::Boolean)
+	{
+		if (!String.IsNumeric())
+			return;
+
+		bool Property = bool(FCString::Atof(*String));
+		TSharedPtr<FJsonValueBoolean> JsonObject = TSharedPtr<FJsonValueBoolean>(new FJsonValueBoolean(Property));
+		Value = JsonObject;
+	}
+	else if (Value->Type == EJson::Object)
+	{
+
+	}
+}
+
+
+TArray<UBPJsonObjectValue * > UBPJsonObjectValue::AsArray()
+{
+	TArray<UBPJsonObjectValue* > Out = {};
+	if (Value->Type == EJson::Array) {
+		TArray< TSharedPtr<FJsonValue> > Arr = Value->AsArray();
+		for (auto i : Arr)
+		{
+			UBPJsonObjectValue* Obj = NewObject<UBPJsonObjectValue>();
+			Obj->Value = i;
+			Out.Add(Obj);
+		}
+	}
+	return Out;
+}
+;
 
 UBPJsonObject * UBPJsonObjectValue::AsObject()
 {
@@ -142,4 +220,42 @@ UBPJsonObject * UBPJsonObjectValue::AsObject()
 	Obj->InnerObj = Value.Get()->AsObject();
 	return Obj;
 
+}
+
+FString UBPJsonObjectValue::ConvertToString()
+{
+	if (!Value)
+		return "";
+	FString write;
+	TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
+	JsonObject->SetField("ObjectValue:", Value);
+	TSharedRef<TJsonWriter<wchar_t, TPrettyJsonPrintPolicy<wchar_t>>> JsonWriter = TJsonWriterFactory<wchar_t, TPrettyJsonPrintPolicy<wchar_t>>::Create(&write); //Our Writer Factory
+	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), JsonWriter);
+	return write;
+}
+
+UBPJsonObjectValue* UBPJsonObjectValue::ConvertFromString(FString JsonString)
+{
+	TSharedRef<TJsonReader<>> reader = TJsonReaderFactory<>::Create(*JsonString);
+	FJsonSerializer Serializer;
+	TSharedPtr<FJsonObject> result;
+	Serializer.Deserialize(reader, result);
+	UBPJsonObjectValue* Obj = NewObject<UBPJsonObjectValue>();
+	if (result.IsValid())
+	{
+
+		TSharedRef< FJsonObject> Ref = result.ToSharedRef();
+		if (Ref->HasField("ObjectValue"))
+		{
+			FString FieldName = "ObjectValue";
+			Obj->Value = *result->Values.Find(FieldName);
+			return Obj;
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("Valid Json but not of Type Value. Use UBPJsonObject instead."));
+		}
+	}
+
+	return nullptr;
 }

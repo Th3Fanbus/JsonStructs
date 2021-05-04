@@ -32,7 +32,9 @@ class JSONSTRUCTS_API UBPJsonObjectValue : public UObject
 
 public:
 	UBPJsonObjectValue() {};
+
 	TSharedPtr<FJsonValue> Value;
+
 	UFUNCTION(BlueprintPure)
 		EBPJson GetFieldType();
 	UFUNCTION(BlueprintPure)
@@ -41,7 +43,22 @@ public:
 		float AsNumber();
 	UFUNCTION(BlueprintPure)
 		bool AsBoolean();
+	UFUNCTION(BlueprintPure)
+		TArray<UBPJsonObjectValue* > AsArray();
+
+	UFUNCTION(BlueprintCallable)
+	void SetValueFromNumber(int32 Number);
+	UFUNCTION(BlueprintCallable)
+	void SetValueFromString(FString String);
+
 
 	UFUNCTION(BlueprintPure)
 		UBPJsonObject * AsObject();
+
+
+	UFUNCTION(BlueprintCallable)
+		FString ConvertToString();
+
+	UFUNCTION(BlueprintCallable)
+	UBPJsonObjectValue* ConvertFromString(FString JsonString);
 };
