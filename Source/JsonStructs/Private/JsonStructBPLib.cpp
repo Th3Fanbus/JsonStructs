@@ -1,7 +1,6 @@
 #include "JsonStructBPLib.h"
 #include "BPJsonObjectValue.h"
 #include "UObject/Class.h"
-#include "Engine/UserDefinedStruct.h"
 #include "UObject/UObjectAllocator.h"
 
 
@@ -84,6 +83,7 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 		{
 			if (json->AsObject()->HasField("enum") && json->AsObject()->HasField("value"))
 			{
+
 				const FString KeyValue = json->AsObject()->TryGetField("enum")->AsString();
 				if (FPackageName::IsValidObjectPath(*KeyValue)) {
 					const UEnum* EnumClass = LoadObject<UEnum>(NULL, *KeyValue);
@@ -109,12 +109,18 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 		if (byteProp->IsEnum()) {
 			if (json->Type == EJson::Object) {
 				if (json->AsObject()->HasField("enum") && json->AsObject()->HasField("value")) {
-					const FString keyvalue = json->AsObject()->TryGetField("enum")->AsString();
-					if (FPackageName::IsValidObjectPath(keyvalue)) {
-						UEnum* EnumClass = LoadObject<UEnum>(NULL, *keyvalue);
+					const TSharedPtr<FJsonValue> keyvalue = json->AsObject()->TryGetField("enum");
+					if (FPackageName::IsValidObjectPath(*keyvalue->AsString())) {
+						UEnum* EnumClass = LoadObject<UEnum>(NULL, *keyvalue->AsString());
 						if (EnumClass) {
+							const TSharedPtr<FJsonValue> valuevalue = json->AsObject()->TryGetField("value");
+							FString Value = *valuevalue->AsString();
+							FName Name = FName(Value);
+							int32 value = EnumClass->GetIndexByName(Name, EGetByNameFlags::CheckAuthoredName);
 							FNumericProperty* NumProp = Cast<FNumericProperty>(byteProp);
-							NumProp->SetNumericPropertyValueFromString(NumProp->ContainerPtrToValuePtr<void>(ptrToProp), *FString::FromInt(EnumClass->GetIndexByName(FName(*json->AsObject()->TryGetField("value")->AsString()), EGetByNameFlags::CheckAuthoredName)));
+							if (NumProp) {
+								NumProp->SetNumericPropertyValueFromString(NumProp->ContainerPtrToValuePtr<void>(ptrToProp), *FString::FromInt(value));
+							}
 						}
 					}
 				}
@@ -140,9 +146,9 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 		numProp->SetNumericPropertyValueFromString(ptrToProp, *json->AsString());
 	}
 	else if (auto aProp = Cast<FArrayProperty>(prop)) {
-		const TArray<TSharedPtr<FJsonValue>> jsonArr = json->AsArray();
 		FScriptArrayHelper helper(aProp, ptrToProp);
-		helper.EmptyValues();	
+		helper.EmptyValues();
+		const TArray<TSharedPtr<FJsonValue>> jsonArr = json->AsArray();
 		for (int i = 0; i < jsonArr.Num(); i++) {
 			int64 valueIndex = helper.AddValue();
 			convertJsonValueToFProperty(jsonArr[i], aProp->Inner, helper.GetRawPtr(valueIndex),Outer);
@@ -165,34 +171,30 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 						convertJsonValueToFProperty(keyvalue, mProp->KeyProp, mapPtr, Outer);
 						convertJsonValueToFProperty(valuevalue, mProp->ValueProp, mapPtr + MapHelper.MapLayout.ValueOffset, Outer);
 					}
+					else {
+						// Log error
+						UE_LOG(LogTemp, Error, TEXT("Expected Fields Key & Value in Jsob Object for Property of Type Map"));
+					}
 				}
 			}
 			MapHelper.Rehash();
 		}
 	}
 	else if (auto cProp = Cast<FClassProperty>(prop)) {
+		UObject* LoadedObject = nullptr; UClass * CastResult = nullptr;
 		if (json->Type == EJson::String) {
 			if (FPackageName::IsValidObjectPath(*json->AsString())) {
-				UObject* LoadedObject = LoadObject<UClass>(NULL, *json->AsString());
+				LoadedObject = LoadObject<UClass>(NULL, *json->AsString());
 				// Failsafe for script classes with BP Stubs
 				if (!LoadedObject) {
 					FString Left; FString JsonString = json->AsString(); FString Right;
 					JsonString.Split("/", &Left, &Right, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
 					Right.Split(".", &Left, &JsonString, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+					JsonString.Split("_C", &Left, &Right, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
 					if (JsonString != "") {
-						LoadedObject = FindClassByName(JsonString.Append("_C"));
+						LoadedObject = FindClassByName(Right);
 						if(LoadedObject)
 							cProp->SetPropertyValue(ptrToProp, LoadedObject);
-						else
-						{
-							// same reverse
-							LoadedObject = FindClassByName(JsonString);
-							if (LoadedObject)
-								cProp->SetPropertyValue(ptrToProp, LoadedObject);
-							else
-								UE_LOG(LogTemp, Warning, TEXT("FailSafe Class Loading failed"), *json->AsString());
-
-						}
 					}
 				}
 				else
@@ -203,61 +205,58 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 	else if (auto uProp = Cast<FObjectProperty>(prop)) {
 	
 		if (json->Type == EJson::Object) {
-			if (json->AsObject()->HasField("object") && json->AsObject()->HasField("class")) {
-				const TSharedPtr<FJsonValue> Key = json->AsObject()->TryGetField("class");
-				const TSharedPtr<FJsonValue> InnerValue = json->AsObject()->TryGetField("object");
-				if (InnerValue->Type == EJson::Object && json->AsObject()->HasField("objectFlags") && json->AsObject()->HasField("objectName") && json->AsObject()->HasField("objectFlags") && json->AsObject()->HasField("objectOuter")) {
-					if (FPackageName::IsValidObjectPath(*Key->AsString())) {
+			if (json->AsObject()->HasField("object") && json->AsObject()->HasField("class") && json->AsObject()->HasField("objectFlags") && json->AsObject()->HasField("objectName")) {
+				const TSharedPtr<FJsonValue> keyvalue = json->AsObject()->TryGetField("class");
+				const TSharedPtr<FJsonValue> valuevalue = json->AsObject()->TryGetField("object");
+				const TSharedPtr<FJsonValue> Namevalue = json->AsObject()->TryGetField("objectName");
+				const TSharedPtr<FJsonValue> Outervalue = json->AsObject()->TryGetField("objectOuter");
+				const EObjectFlags ObjectLoadFlags = (EObjectFlags)json->AsObject()->GetIntegerField((TEXT("objectFlags")));
+				if (valuevalue->Type == EJson::Object) {
+					if (FPackageName::IsValidObjectPath(*keyvalue->AsString())) {
+						UClass* InnerBPClass = LoadObject<UClass>(NULL, *keyvalue->AsString());
+						UClass* OuterLoaded = LoadObject<UClass>(NULL, *Outervalue->AsString());
 
-						FString ObjectName = json->AsObject()->TryGetField("objectName")->AsString();
-						const TSharedPtr<FJsonValue> OuterValue = json->AsObject()->TryGetField("objectOuter");
-						const EObjectFlags ObjectLoadFlags = (EObjectFlags)json->AsObject()->GetIntegerField((TEXT("objectFlags")));
-						UClass* BaseClass = LoadObject<UClass>(NULL, *Key->AsString());
-						UClass* OuterLoaded = LoadObject<UClass>(NULL, *OuterValue->AsString());
-						UObject* ExistingProp = uProp->GetPropertyValue(ptrToProp);
-						if (BaseClass && (!BaseClass->HasAnyClassFlags(CLASS_Deprecated | CLASS_Intrinsic) && BaseClass->HasAnyClassFlags(EClassFlags::CLASS_DefaultToInstanced))) {
-
-							UObject* Template = UObject::GetArchetypeFromRequiredInfo(BaseClass, Outer ? Outer : OuterLoaded, *ObjectName, ObjectLoadFlags);
-							UObject* Constructed = StaticConstructObject_Internal(BaseClass, Outer ? Outer : OuterLoaded ? OuterLoaded : BaseClass, *ObjectName, ObjectLoadFlags, EInternalObjectFlags::None, Template);
-							convertJsonObjectToUStruct(InnerValue->AsObject(), BaseClass, Constructed, Outer ? Outer : OuterLoaded);
+						if (InnerBPClass) {
+							UObject* Template = UObject::GetArchetypeFromRequiredInfo(InnerBPClass, Outer ? Outer: OuterLoaded, *Namevalue->AsString(), ObjectLoadFlags);
+							UObject* Constructed = StaticConstructObject_Internal(InnerBPClass, Outer ? Outer : OuterLoaded ? OuterLoaded : InnerBPClass, *Namevalue->AsString(), ObjectLoadFlags, EInternalObjectFlags::None, Template);
+							convertJsonObjectToUStruct(valuevalue->AsObject(), InnerBPClass, Constructed,nullptr);
 							uProp->SetObjectPropertyValue(ptrToProp, Constructed);
-							
 						}
 					}
 				}
-				else if (InnerValue->Type == EJson::String) {
-					if (InnerValue->AsString() != "") {
-						UObject* uObj = LoadObject<UObject>(NULL, *InnerValue->AsString());
+				else if (valuevalue->Type == EJson::String) {
+					if (valuevalue->AsString() != "") {
+						UObject* uObj = LoadObject<UObject>(NULL, *valuevalue->AsString());
 						uProp->SetPropertyValue(ptrToProp, uObj);
 					}
 				}
 			}
 		}
+		else if (json->Type == EJson::String) {
+			if (json->AsString() != "") {
+				UObject* uObj = LoadObject<UObject>(NULL, *json->AsString());
+				uProp->SetPropertyValue(ptrToProp, uObj);
+			}
+		}	
 	}
 	else if (auto sProp = Cast<FStructProperty>(prop)) {
 		convertJsonObjectToUStruct(json->AsObject(), sProp->Struct, ptrToProp, Outer);
 	}
 	else if (FWeakObjectProperty* WeakObjectProperty = CastField<FWeakObjectProperty>(prop))
 	{
-		if (json->Type == EJson::String)
+		if (json->AsString() != "")
 		{
-			if (json->AsString() != "")
-			{
-				//UObject* uObj = FSoftObjectPath(json->AsString()).TryLoad();
-				//WeakObjectProperty->SetPropertyValue(ptrToProp, uObj);
-			}
+			UObject* uObj = FSoftObjectPath(json->AsString()).TryLoad();
+			WeakObjectProperty->SetPropertyValue(ptrToProp, uObj);
 		}
 	}
 	// Check to see if this is a simple soft object property (eg. not an array of soft objects).
 	else if (FSoftObjectProperty* SoftObjectProperty = CastField<FSoftObjectProperty>(prop))
 	{
-		if (json->Type == EJson::String)
+		if (json->AsString() != "")
 		{
-			if (json->AsString() != "")
-			{
-				//UObject* uObj = FSoftObjectPath(json->AsString()).TryLoad();
-				//WeakObjectProperty->SetPropertyValue(ptrToProp, uObj);
-			}
+			UObject* uObj = FSoftObjectPath(json->AsString()).TryLoad();
+			WeakObjectProperty->SetPropertyValue(ptrToProp, uObj);
 		}
 	}
 	else if (auto* CastProp = CastField<FMulticastSparseDelegateProperty>(prop))
@@ -271,7 +270,7 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 }
 
 
-TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop, void* ptrToProp,bool includeObjects,TArray<UObject *>& RecursedObjects) {
+TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop, void* ptrToProp,bool includeObjects ,TArray<UObject*>& RecursedObjects) {
 	if (FStrProperty* strProp = Cast<FStrProperty>(prop)) {
 		return TSharedPtr<FJsonValue>(new FJsonValueString(strProp->GetPropertyValue(ptrToProp)));
 	}
@@ -291,19 +290,12 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 		return TSharedPtr<FJsonValue>(new FJsonValueBoolean(bProp->GetPropertyValue(ptrToProp)));
 	}
 	else if (FEnumProperty* eProp = Cast<FEnumProperty>(prop)) {
-		if (eProp->GetEnum() && eProp->IsValidLowLevel())
-		{
-			if (eProp->GetEnum()->GetClass() && eProp->GetEnum()->GetClass()->IsValidLowLevel())
-			{
-				UE_LOG(LogTemp, Error, TEXT("CppType : %s"), *eProp->GetEnum()->CppType);
-				TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
-				TSharedPtr<FJsonValue> key = TSharedPtr<FJsonValue>(new FJsonValueString(eProp->GetEnum()->GetPathName()));
-				JsonObject->SetField("enum", key);
-				TSharedPtr<FJsonValue> value = TSharedPtr<FJsonValue>(new FJsonValueString(eProp->GetEnum()->GetNameByValue(eProp->GetUnderlyingProperty()->GetSignedIntPropertyValue(ptrToProp)).ToString()));
-				JsonObject->SetField("value", value);
-				return TSharedPtr<FJsonValue>(TSharedPtr<FJsonValueObject>(new FJsonValueObject(JsonObject)));
-			}
-		}
+		TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
+		TSharedPtr<FJsonValue> key = TSharedPtr<FJsonValue>(new FJsonValueString(eProp->GetEnum()->GetPathName()));
+		JsonObject->SetField("enum", key);
+		TSharedPtr<FJsonValue> value = TSharedPtr<FJsonValue>(new FJsonValueString(eProp->GetEnum()->GetNameByValue(eProp->GetUnderlyingProperty()->GetSignedIntPropertyValue(ptrToProp)).ToString()));
+		JsonObject->SetField("value", value);
+		return TSharedPtr<FJsonValue>(TSharedPtr<FJsonValueObject>(new FJsonValueObject(JsonObject)));
 	}
 	else if (FDoubleProperty* ddProp = Cast<FDoubleProperty>(prop)) {
 		return TSharedPtr<FJsonValue>(new FJsonValueNumber(ddProp->GetPropertyValue(ptrToProp)));
@@ -312,10 +304,29 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 		if (byProp->IsEnum())
 		{
 			TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
-			TSharedPtr<FJsonValue> key = TSharedPtr<FJsonValue>(new FJsonValueString(byProp->Enum->GetPathName()));
-			JsonObject->SetField("enum", key);
-			TSharedPtr<FJsonValue> value = TSharedPtr<FJsonValue>(new FJsonValueString(byProp->Enum->GetNameByValue(byProp->GetSignedIntPropertyValue(ptrToProp)).ToString()));
-			JsonObject->SetField("value", value);
+			if (byProp->Enum && byProp->IsValidLowLevel())
+			{
+
+				if (byProp->Enum->GetClass() && byProp->Enum->GetClass()->IsValidLowLevel())
+				{
+					UE_LOG(LogTemp, Error, TEXT("ClassName : %s"), *byProp->Enum->GetClass()->GetFName().ToString());
+
+					UE_LOG(LogTemp, Error, TEXT("Name : %s"), *byProp->Enum->GetFName().ToString());
+
+					TSharedPtr<FJsonValue> key = TSharedPtr<FJsonValue>(new FJsonValueString(byProp->Enum->GetPathName()));
+					JsonObject->SetField("enum", key);
+					TSharedPtr<FJsonValue> value = TSharedPtr<FJsonValue>(new FJsonValueString(byProp->Enum->GetNameByValue(byProp->GetSignedIntPropertyValue(ptrToProp)).ToString()));
+					JsonObject->SetField("value", value);
+				}
+				else
+				{
+
+					TSharedPtr<FJsonValue> key = TSharedPtr<FJsonValue>(new FJsonValueString("Fix ME"));
+					JsonObject->SetField("borked", key);
+					TSharedPtr<FJsonValue> value = TSharedPtr<FJsonValue>(new FJsonValueString(byProp->Enum->GetNameByValue(byProp->GetSignedIntPropertyValue(ptrToProp)).ToString()));
+					JsonObject->SetField("value", value);
+				}
+			}
 			return TSharedPtr<FJsonValue>(TSharedPtr<FJsonValueObject>(new FJsonValueObject(JsonObject)));
 		}
 		else
@@ -345,20 +356,20 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 	}
 	else if (FWeakObjectProperty* WeakObjectProperty = CastField<FWeakObjectProperty>(prop))
 	{
-		//if (WeakObjectProperty->GetPropertyValue(ptrToProp).IsValid())
-		//{
-			//return TSharedPtr<FJsonValue>(new FJsonValueString(FSoftObjectPath(WeakObjectProperty->GetPropertyValue(ptrToProp).Get()).ToString()));
+		if (WeakObjectProperty->GetPropertyValue(ptrToProp).IsValid())
+		{
+			return TSharedPtr<FJsonValue>(new FJsonValueString(FSoftObjectPath(WeakObjectProperty->GetPropertyValue(ptrToProp).Get()).ToString()));
 
-		//}
+		}
 	}
 	// Check to see if this is a simple soft object property (eg. not an array of soft objects).
 	else if (FSoftObjectProperty* SoftObjectProperty = CastField<FSoftObjectProperty>(prop))
 	{
-		//if (SoftObjectProperty->GetPropertyValue(ptrToProp).IsValid())
-		//{
-		//	return TSharedPtr<FJsonValue>(new FJsonValueString(SoftObjectProperty->GetPropertyValue(ptrToProp).ToSoftObjectPath().ToString()));
+		if (SoftObjectProperty->GetPropertyValue(ptrToProp).IsValid())
+		{
+			return TSharedPtr<FJsonValue>(new FJsonValueString(SoftObjectProperty->GetPropertyValue(ptrToProp).ToSoftObjectPath().ToString()));
 
-		//}
+		}
 	}
 	else if (FObjectProperty* oProp = Cast<FObjectProperty>(prop)) {
 		if (oProp->GetPropertyValue(ptrToProp)->IsValidLowLevel())
@@ -370,9 +381,7 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 			TSharedPtr<FJsonValue> value = TSharedPtr<FJsonValue>(new FJsonValueString(oProp->GetPropertyValue(ptrToProp)->GetPathName()));
 			TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
 			JsonObject->SetField("class", key);
-			UObject* ObjectValue = oProp->GetPropertyValue(ptrToProp);
-			JsonObject->SetField("objectFlags", TSharedPtr<FJsonValue>(new FJsonValueNumber(int32(ObjectValue->GetFlags()))));
-			JsonObject->SetField("objectName", TSharedPtr<FJsonValue>(new FJsonValueString(ObjectValue->GetName())));
+
 
 			// Everything that is streamable or AssetUserData ( aka Meshs and Textures etc ) will never be serialized
 			for (auto i : BaseClass->Interfaces)
@@ -380,22 +389,20 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 				if (i.Class == UInterface_AssetUserData::StaticClass() || i.Class == UStreamableRenderAsset::StaticClass())
 				{
 					JsonObject->SetField("object", value);
-					JsonObject->SetField("type", TSharedPtr<FJsonValue>(new FJsonValueString("Streamable or Interface")));
 					TSharedPtr<FJsonValueObject> Obj = TSharedPtr<FJsonValueObject>(new FJsonValueObject(JsonObject));
 					return TSharedPtr<FJsonValue>(Obj);
 				}
 			}
-
 			// skip this if we dont need it 
-			if (includeObjects && !RecursedObjects.Contains(ObjectValue) && BaseClass->HasAnyClassFlags(EClassFlags::CLASS_DefaultToInstanced) && BaseClass->HasAnyClassFlags(EClassFlags::CLASS_EditInlineNew)) {
-				UE_LOG(LogTemp, Error, TEXT("SubObject : %s"), *BaseClass->GetName());
-				RecursedObjects.Add(ObjectValue);
-				TSharedPtr<FJsonObject> Obj = convertUStructToJsonObject(BaseClass, ObjectValue, includeObjects, RecursedObjects);
+			if (includeObjects && BaseClass->HasAnyClassFlags(EClassFlags::CLASS_DefaultToInstanced)) {
+				TSharedPtr<FJsonObject> Obj = convertUStructToJsonObject(BaseClass, oProp->GetPropertyValue(ptrToProp), includeObjects, RecursedObjects);
+				UObject* ObjectValue = oProp->GetPropertyValue(ptrToProp);
 				JsonObject->SetField("object", TSharedPtr<FJsonValue>(new FJsonValueObject(Obj)));
-				JsonObject->SetField("objectOuter", TSharedPtr<FJsonValue>(new FJsonValueString(ObjectValue->GetOutermost()->GetFName().ToString())));
+				JsonObject->SetField("objectFlags", TSharedPtr<FJsonValue>(new FJsonValueNumber(int32(ObjectValue->GetFlags()))));
+				JsonObject->SetField("objectName", TSharedPtr<FJsonValue>(new FJsonValueString(oProp->GetPropertyValue(ptrToProp)->GetName())));
+				JsonObject->SetField("objectOuter", TSharedPtr<FJsonValue>(new FJsonValueString(oProp->GetPropertyValue(ptrToProp)->GetOutermost()->GetFName().ToString())));
 
 				return TSharedPtr<FJsonValue>(TSharedPtr<FJsonValueObject>(new FJsonValueObject(JsonObject)));
-				
 			}
 			else
 			{
@@ -412,7 +419,7 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 		FScriptMapHelper arr(mProp, ptrToProp);
 		TArray<TSharedPtr<FJsonValue>> jsonArr;
 		for (int i = 0; i < arr.Num(); i++) {
-			TSharedPtr<FJsonValue> key = convertUPropToJsonValue(mProp->KeyProp, arr.GetKeyPtr(i),includeObjects, RecursedObjects);
+			TSharedPtr<FJsonValue> key = convertUPropToJsonValue(mProp->KeyProp, arr.GetKeyPtr(i), includeObjects, RecursedObjects);
 			TSharedPtr<FJsonValue> value = convertUPropToJsonValue(mProp->ValueProp, arr.GetValuePtr(i), includeObjects, RecursedObjects);
 			TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
 			JsonObject->SetField("key", key);
@@ -443,8 +450,8 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 void UJsonStructBPLib::InternalGetStructAsJson(FStructProperty *Structure, void* StructurePtr, FString &String, bool RemoveGUID,bool includeObjects)
 {
 	TSharedPtr<FJsonObject> JsonObject;
-	TArray<UObject* > RecursedObjects;
-	JsonObject = convertUStructToJsonObject(Structure->Struct, StructurePtr, includeObjects, RecursedObjects);
+	TArray<UObject*> Array;
+	JsonObject = convertUStructToJsonObject(Structure->Struct, StructurePtr, includeObjects, Array);
 
 	FString write;
 	TSharedRef<TJsonWriter<wchar_t, TPrettyJsonPrintPolicy<wchar_t>>> JsonWriter = TJsonWriterFactory<wchar_t, TPrettyJsonPrintPolicy<wchar_t>>::Create(&write); //Our Writer Factory
@@ -466,11 +473,11 @@ void UJsonStructBPLib::InternalGetStructAsJsonForTable(FStructProperty *Structur
 TSharedPtr<FJsonObject> UJsonStructBPLib::ConvertUStructToJsonObjectWithName(UStruct * Struct, void * ptrToStruct,bool RemoveGUID,  FString Name)
 {
 	auto obj = TSharedPtr<FJsonObject>(new FJsonObject());
-	TArray<UObject*> Rec;
 	obj->SetStringField("Name", Name);
 	for (auto prop = TFieldIterator<FProperty>(Struct); prop; ++prop) {
 		FString PropName = RemoveGUID ? RemoveUStructGuid(prop->GetName()) : prop->GetName();
-		obj->SetField(PropName, convertUPropToJsonValue(*prop, prop->ContainerPtrToValuePtr<void>(ptrToStruct),false, Rec));
+		TArray<UObject* > RecursedObjects;
+		obj->SetField(PropName, convertUPropToJsonValue(*prop, prop->ContainerPtrToValuePtr<void>(ptrToStruct), RemoveGUID,RecursedObjects));
 	}
 	return obj;
 }
@@ -511,9 +518,10 @@ FString UJsonStructBPLib::ClassDefaultsToJsonString(UClass *  ObjectClass, bool 
 
 	UObject * Object = ObjectClass->GetDefaultObject();
 	if (ObjectClass != NULL) {
-		TArray<UObject* > RecursedObjects;
 		TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
-		TSharedPtr<FJsonObject> Obj = convertUStructToJsonObject(ObjectClass, ObjectClass->GetDefaultObject(), ObjectRecursive,RecursedObjects);
+		TArray<UObject* > ResursionArray;
+
+		TSharedPtr<FJsonObject> Obj = convertUStructToJsonObject(ObjectClass, ObjectClass->GetDefaultObject(), ObjectRecursive, ResursionArray);
 		FString PathName = "";
 		if (ObjectClass->IsNative())
 		{
@@ -542,9 +550,9 @@ FString UJsonStructBPLib::CDOFieldsToJsonString(TArray<FString> Fields, UClass *
 
 	UObject * Object = ObjectClass->GetDefaultObject();
 	if (ObjectClass != NULL) {
-		TArray<UObject*> RecursedObjects;
 		TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
-		TSharedPtr<FJsonObject> Obj = convertUStructToJsonObject(ObjectClass, ObjectClass->GetDefaultObject(), ObjectRecursive, RecursedObjects);
+		TArray<UObject* > ResursionArray;
+		TSharedPtr<FJsonObject> Obj = convertUStructToJsonObject(ObjectClass, ObjectClass->GetDefaultObject(), ObjectRecursive, ResursionArray);
 		TSharedPtr<FJsonValue> key = TSharedPtr<FJsonValue>(new FJsonValueString(ObjectClass->GetSuperClass()->GetPathName()));
 		JsonObject->SetField("Class", key);
 		TSharedRef<FJsonObject> Ref = Obj.ToSharedRef();
@@ -669,7 +677,7 @@ UClass *  UJsonStructBPLib::SetClassDefaultsFromJsonString(FString String, UClas
 				JsonString.Split("_C", &Left, &Right, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
 				if (JsonString != "")
 				{
-					UE_LOG(LogTemp, Warning, TEXT("SetClassDefaultsFromJsonString :: FailSafe Class Loading %s"), *String);
+					UE_LOG(LogTemp, Warning, TEXT("FailSafe Class Loading %s"), *String);
 					LoadedObject = FindClassByName(Right);
 					if (LoadedObject)
 					{
