@@ -8,30 +8,7 @@
 #include "Serialization/ObjectReader.h" 
 #include "JsonStructBPLib.generated.h"
 
-template <class FunctorType>
-class PlatformFileFunctor : public IPlatformFile::FDirectoryVisitor	//GenericPlatformFile.h
-{
-public:
 
-	virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory) override
-	{
-		return Functor(FilenameOrDirectory, bIsDirectory);
-	}
-
-	PlatformFileFunctor(FunctorType&& FunctorInstance)
-		: Functor(MoveTemp(FunctorInstance))
-	{
-	}
-
-private:
-	FunctorType Functor;
-};
-
-template <class Functor>
-static PlatformFileFunctor<Functor> MakeDirectoryVisitor(Functor&& FunctorInstance)
-{
-	return PlatformFileFunctor<Functor>(MoveTemp(FunctorInstance));
-}
 
 /**
  * 
@@ -42,11 +19,14 @@ class JSONSTRUCTS_API UJsonStructBPLib : public UBlueprintFunctionLibrary
 	GENERATED_BODY()
 
 public:
+	static void Log(FString LogString, int32 Level);
+
+
 	static FString RemoveUStructGuid(FString String);
 	static UClass * FindClassByName(FString ClassNameInput);
 
-	static TSharedPtr<FJsonValue> convertUPropToJsonValue(FProperty* prop, void* ptrToProp, bool includeObjects, TArray<UObject*>& RecursedObjects);
-	static TSharedPtr<FJsonObject> convertUStructToJsonObject(UStruct* Struct, void* ptrToStruct, bool includeObjects, TArray<UObject*>& RecursedObjects);
+	static TSharedPtr<FJsonValue> convertUPropToJsonValue(FProperty* prop, void* ptrToProp, bool includeObjects, TArray<UObject*>& RecursedObjects, bool IncludeNonInstanced);
+	static TSharedPtr<FJsonObject> convertUStructToJsonObject(UStruct* Struct, void* ptrToStruct, bool includeObjects, TArray<UObject*>& RecursedObjects, bool IncludeNonInstanced);
 	static void convertJsonObjectToUStruct(TSharedPtr<FJsonObject> json, UStruct* Struct, void* ptrToStruct, UObject* Outer);
 	static void convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, FProperty* prop, void* ptrToProp, UObject* Outer);
 	static void InternalGetStructAsJson(FStructProperty *Structure, void * StructurePtr, FString &String, bool RemoveGUID = false, bool includeObjects = false);
@@ -56,7 +36,7 @@ public:
 	// Formats a Json String resulting from a Struct , in a Format Data Tables can accept ( Needs Row Name) 
 	
 	UFUNCTION(BlueprintCallable, Category = "Editor| Json", CustomThunk, meta = (CustomStructureParam = "Structure"))
-		static void GetJsonFromStructForTable(FString RowName, UPARAM(ref)FString &String, UProperty *Structure);
+		static void GetJsonFromStructForTable(FString RowName, UPARAM(ref)FString &String, uint8 Structure);
 
 	DECLARE_FUNCTION(execGetJsonFromStructForTable)
 	{
@@ -105,10 +85,10 @@ public:
 	DECLARE_FUNCTION(execGetJsonFromStruct)
 	{
 
-		PARAM_PASSED_BY_REF(String, UStrProperty, FString);
+		PARAM_PASSED_BY_REF(String, FStrProperty, FString);
 		Stack.Step(Stack.Object, NULL);
 
-		UStructProperty* StructureProperty = Cast<UStructProperty>(Stack.MostRecentProperty);
+		FStructProperty* StructureProperty = Cast<FStructProperty>(Stack.MostRecentProperty);
 
 		void* StructurePtr = Stack.MostRecentPropertyAddress;
 
@@ -118,31 +98,28 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
-		static FString ClassDefaultsToJsonString(UClass * Value ,bool ObjectRecursive = false);
+		static FString ClassDefaultsToJsonString(UClass * Value ,bool ObjectRecursive = false, UObject * DefaultObject= nullptr,bool DeepRecursion = false);
 
-	UFUNCTION(BlueprintCallable, Category = "Utilities")
-		static FString CDOFieldsToJsonString(TArray<FString> Fields, UClass * Value, bool ObjectRecursive = false, bool Exclude = false);
+	static FString JsonObjectToString(TSharedPtr<FJsonObject> JsonObject);
 
-		
-	UFUNCTION(BlueprintCallable, Category = "Utilities")
-	static FString GetPackage(UClass* Class);
+	static TSharedPtr<FJsonObject> CDOToJson(UClass * ObjectClass, UObject * Object, bool ObjectRecursive, bool DeepRecursion);
 	
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
-	static UClass * SetClassDefaultsFromJsonString(FString JsonString, UClass * BaseClass);
+		static UBPJsonObject * ClassDefaultsToJsonObject(UClass * ObjectClass, bool ObjectRecursive, UObject * DefaultObject, UObject* Outer, bool DeepRecursion = false);
+
+	UFUNCTION(BlueprintCallable, Category = "Utilities")
+		static FString CDOFieldsToJsonString(TArray<FString> Fields, UClass * Value, bool ObjectRecursive = false, bool Exclude = false, bool DeepRecursion = false);
+
+		
+	
+	UFUNCTION(BlueprintCallable, Category = "Utilities")
+	static bool SetClassDefaultsFromJsonString(FString JsonString, UClass * BaseClass, UObject * DefaultObject = nullptr);
 	
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
 	static UClass* CreateNewClass(const FString& ClassName, const FString& PackageName, UClass* ParentClass);
 
 
-	UFUNCTION(BlueprintCallable, Category = "Utilities")
-		static void WriteStringToFile(FString FilePath, FString String, bool Relative = true);
 
-	UFUNCTION(BlueprintCallable, Category = "Utilities")
-		static bool LoadStringFromFile(FString& String, FString FilePath, bool Relative = true);
-	
-	UFUNCTION(BlueprintPure, Category = "Utilities")
-		static bool FindFilesInPath(const FString& FullPathOfBaseDir, TArray<FString>& FilenamesOut, bool Recursive = false, const FString& FilterByExtension = "");
-	
 
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "A JsonValue String Conversion", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
 		static FString Conv_BPJsonObjectValueToString(UBPJsonObjectValue * Value);
@@ -174,5 +151,9 @@ public:
 
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "JsonObjectValue to JsonObject", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
 		static UBPJsonObject * Conv_UBPJsonObjectValueToBPJsonObject(UBPJsonObjectValue * Value);
+
+
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "IsNative", CompactNodeTitle = "IsNative", BlueprintAutocast), Category = "Utilities")
+	static bool IsNative(UClass* Class) { return Class->IsNative(); };
 
 };

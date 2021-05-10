@@ -29,11 +29,19 @@ class JSONSTRUCTS_API UBPJsonObjectValue : public UObject
 	GENERATED_BODY()
 
 
-
 public:
-	UBPJsonObjectValue() {};
+	UBPJsonObjectValue() { 
+		ValueObject = nullptr;
+		Parent = nullptr;
+	};
 
-	TSharedPtr<FJsonValue> Value;
+	void InitSubObject(FString Name, UBPJsonObject* Parent);
+
+	FString FieldName = "";
+	UPROPERTY(BlueprintReadOnly)
+	UBPJsonObject* ValueObject; 
+	UPROPERTY(BlueprintReadOnly)
+	UBPJsonObject* Parent;
 
 	UFUNCTION(BlueprintPure)
 		EBPJson GetFieldType();
@@ -60,5 +68,5 @@ public:
 		FString ConvertToString();
 
 	UFUNCTION(BlueprintCallable)
-	UBPJsonObjectValue* ConvertFromString(FString JsonString);
+	static UBPJsonObjectValue* ConvertFromString(FString JsonString);
 };

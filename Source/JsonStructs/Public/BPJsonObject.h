@@ -17,13 +17,15 @@ UCLASS(BlueprintType)
 class JSONSTRUCTS_API UBPJsonObject : public UObject
 {
 	GENERATED_BODY()
-	
+
 public:
 
-	UBPJsonObject() {};
+	void InitSubObjects();
+
+	UBPJsonObject();
 
 	UFUNCTION(BlueprintPure)
-		TArray<FString> GetFieldNames();
+	TArray<FString> GetFieldNames();
 
 
 	UFUNCTION(BlueprintPure)
@@ -31,9 +33,6 @@ public:
 
 	UFUNCTION(BlueprintPure)
 		float GetJsonNumberField(const FString Name, bool SearchNested = false);
-
-	UFUNCTION(BlueprintPure)
-		TArray<UBPJsonObjectValue*> GetJsonArrayField(const FString Name, bool SearchNested = false);
 
 	UFUNCTION(BlueprintPure)
 		EBPJson GetFieldType(const FString Name);
@@ -52,5 +51,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 		FString GetAsString();
 
-	TSharedPtr<FJsonObject> InnerObj;
+	TSharedPtr<FJsonObject>  InnerObj;
+
+	bool IsArray = false;
+	
+	UPROPERTY(BlueprintReadWrite)
+	TMap< FString , UBPJsonObjectValue* > Values;
 };
