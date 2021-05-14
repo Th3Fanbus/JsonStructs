@@ -45,7 +45,7 @@ public:
 		void SetJsonNumberField(const FString Name, const float Value);
 	
 
-	UFUNCTION(BlueprintPure)
+	UFUNCTION(BlueprintCallable)
 		static UBPJsonObject * GetStringAsJson(UPARAM(ref)FString &String, UObject * Outer);
 
 	UFUNCTION(BlueprintCallable)

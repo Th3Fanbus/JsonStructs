@@ -98,26 +98,30 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
-		static FString ClassDefaultsToJsonString(UClass * Value ,bool ObjectRecursive = false, UObject * DefaultObject= nullptr,bool DeepRecursion = false);
+		static FString ClassDefaultsToJsonString(UClass * Value ,bool ObjectRecursive = false, UObject * DefaultObject= nullptr,bool DeepRecursion = false, bool SkipRoot= false, bool SkipTransient= false,bool OnlyEditable = false);
 
 	static FString JsonObjectToString(TSharedPtr<FJsonObject> JsonObject);
 
-	static TSharedPtr<FJsonObject> CDOToJson(UClass * ObjectClass, UObject * Object, bool ObjectRecursive, bool DeepRecursion);
+
+	static TSharedPtr<FJsonObject> CDOToJson(UClass* ObjectClass, UObject* Object, bool ObjectRecursive, bool DeepRecursion, bool SkipRoot, bool SkipTransient, bool OnlyEditable);
 	
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
-		static UBPJsonObject * ClassDefaultsToJsonObject(UClass * ObjectClass, bool ObjectRecursive, UObject * DefaultObject, UObject* Outer, bool DeepRecursion = false);
+		static UBPJsonObject * ClassDefaultsToJsonObject(UClass * ObjectClass, bool ObjectRecursive, UObject * DefaultObject, UObject* Outer, bool DeepRecursion = false, bool SkipRoot = false, bool SkipTransient = false,bool OnlyEditable = false);
 
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
-		static FString CDOFieldsToJsonString(TArray<FString> Fields, UClass * Value, bool ObjectRecursive = false, bool Exclude = false, bool DeepRecursion = false);
+		static FString CDOFieldsToJsonString(TArray<FString> Fields, UClass * Value, bool ObjectRecursive = false, bool Exclude = false, bool DeepRecursion = false, bool SkipRoot = false, bool SkipTransient = false,bool OnlyEditable = false);
 
 		
 	
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
 	static bool SetClassDefaultsFromJsonString(FString JsonString, UClass * BaseClass, UObject * DefaultObject = nullptr);
 	
+	
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
-	static UClass* CreateNewClass(const FString& ClassName, const FString& PackageName, UClass* ParentClass);
+		static UClass* FailSafeClassFind(FString Path);
 
+	UFUNCTION(BlueprintCallable, Category = "Utilities")
+	static UClass* CreateNewClass(const FString& ClassName, const FString& PackageName, UClass* ParentClass, const FString& MountPoint);
 
 
 
@@ -154,6 +158,6 @@ public:
 
 
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "IsNative", CompactNodeTitle = "IsNative", BlueprintAutocast), Category = "Utilities")
-	static bool IsNative(UClass* Class) { return Class->IsNative(); };
+		static bool IsNative(UClass* Class) { if (!Class) return false;  return Class->IsNative(); };
 
 };

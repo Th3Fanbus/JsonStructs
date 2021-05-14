@@ -38,7 +38,8 @@ public class JsonStructs : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
-                "Json"
+                "Json",
+				"AssetRegistry"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

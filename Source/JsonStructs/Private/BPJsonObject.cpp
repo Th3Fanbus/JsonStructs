@@ -8,12 +8,15 @@ UBPJsonObject::UBPJsonObject()
 
 void UBPJsonObject::InitSubObjects()
 {
-	for (auto Field : InnerObj->Values)
+	if (InnerObj.IsValid())
 	{
-		UBPJsonObjectValue* Obj = NewObject<UBPJsonObjectValue>(this);
-		Values.Add(Field.Key, Obj);
-		Obj->InitSubObject(Field.Key, this);
+		for (auto Field : InnerObj->Values)
+		{
+			UBPJsonObjectValue* Obj = NewObject<UBPJsonObjectValue>(this);
+			Values.Add(Field.Key, Obj);
+			Obj->InitSubObject(Field.Key, this);
 
+		}
 	}
 };
 TArray<FString> UBPJsonObject::GetFieldNames()

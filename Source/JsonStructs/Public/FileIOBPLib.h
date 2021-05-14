@@ -55,5 +55,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
 	static bool LoadStringFromFile(FString& String, FString FilePath, bool Relative = true);
 
+	UFUNCTION(BlueprintCallable, Category = "Utilities")
+		static void GetDerivedClassesFiltered(UClass* ClassIn, TArray<UClass*>& DerivedClasses, TArray<UClass*> Filter, bool Recursive);
+
+	UFUNCTION(BlueprintCallable, Category = "Utilities")
+		static void GetAllScriptClassFolders(TArray<FString>& Folders, FString StartsWith);
+	UFUNCTION(BlueprintCallable, Category = "Utilities")
+		static void GetAllScriptClassesInPath(TArray<UClass*>& Classes, FString Path);
+
+	UFUNCTION(BlueprintCallable, Category = "Utilities")
+		static void GetAllScriptClasses(TArray<UClass*>& Classes);
+
 
 };
