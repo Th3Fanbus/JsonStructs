@@ -310,12 +310,11 @@ UBPJsonObject * UBPJsonObjectValue::AsObject()
 	if (!ValueObject)
 		return nullptr;
 
-	if (Parent->Values.Contains(FieldName) && Parent != ValueObject)
+	if (Parent && Parent->Values.Contains(FieldName) && Parent != ValueObject)
 	{
 		return ValueObject;
 	}
-	else
-		return nullptr;
+	return nullptr;
 }
 
 FString UBPJsonObjectValue::ConvertToString()

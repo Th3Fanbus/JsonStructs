@@ -55,10 +55,20 @@ UClass* UJsonStructBPLib::FindClassByName(FString ClassNameInput) {
 	return nullptr;
 }
 
-TSharedPtr<FJsonObject> UJsonStructBPLib::convertUStructToJsonObject(UStruct* Struct, void* ptrToStruct, bool includeObjects, TArray<UObject*>& RecursedObjects,bool IncludeNonInstanced) {
+TSharedPtr<FJsonObject> UJsonStructBPLib::convertUStructToJsonObject(const UStruct* Struct, void* ptrToStruct, bool includeObjects, TArray<UObject*>& RecursedObjects,bool IncludeNonInstanced, TArray<FString> FilteredFields, bool Exclude= true) {
 	auto Obj = TSharedPtr<FJsonObject>(new FJsonObject());
 	for (auto prop = TFieldIterator<FProperty>(Struct); prop; ++prop) {
-		TSharedPtr<FJsonValue> value = convertUPropToJsonValue(*prop, prop->ContainerPtrToValuePtr<void>(ptrToStruct), includeObjects, RecursedObjects, IncludeNonInstanced);
+		if (FilteredFields.Contains(prop->GetName()))
+		{
+			if(Exclude)
+				continue;
+		}
+		else
+		{
+			if (!Exclude)
+				continue;
+		}
+		TSharedPtr<FJsonValue> value = convertUPropToJsonValue(*prop, prop->ContainerPtrToValuePtr<void>(ptrToStruct), includeObjects, RecursedObjects, IncludeNonInstanced, FilteredFields, Exclude);
 		if (value.IsValid() && value->Type != EJson::Null)
 		{
 			Obj->SetField(prop->GetName(), value);
@@ -82,7 +92,7 @@ void UJsonStructBPLib::convertJsonObjectToUStruct(TSharedPtr<FJsonObject> json, 
 
 void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, FProperty* prop, void* ptrToProp, UObject* Outer) {
 	if (FStrProperty* strProp = Cast<FStrProperty>(prop)) {
-		FString currentValue = strProp->GetPropertyValue(ptrToProp); 
+		const FString currentValue = strProp->GetPropertyValue(ptrToProp); 
 		if (currentValue != json->AsString())
 		{
 			Log(FString("Overwrite FStrProperty: ").Append(prop->GetName()).Append(" OldValue = ").Append(currentValue).Append(" NewValue = ").Append(json->AsString()),0);
@@ -90,7 +100,7 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 		}
 	}
 	else if (FTextProperty*  txtProp = Cast<FTextProperty>(prop)) {
-		FText currentValue = txtProp->GetPropertyValue(ptrToProp);
+		const FText currentValue = txtProp->GetPropertyValue(ptrToProp);
 		if (currentValue.ToString() != json->AsString())
 		{
 			Log(FString("Overwrite FStrProperty: ").Append(prop->GetName()).Append(" OldValue = ").Append(currentValue.ToString()).Append(" NewValue = ").Append(json->AsString()), 0);
@@ -98,7 +108,7 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 		}
 	}
 	else if (FNameProperty* nameProp = Cast<FNameProperty>(prop)) {
-		FName currentValue = nameProp->GetPropertyValue(ptrToProp);
+		const FName currentValue = nameProp->GetPropertyValue(ptrToProp);
 		if (currentValue.ToString() != json->AsString())
 		{
 			Log(FString("Overwrite FNameProperty: ").Append(prop->GetName()).Append(" OldValue = ").Append(currentValue.ToString()).Append(" NewValue = ").Append(json->AsString()), 0);
@@ -107,7 +117,7 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 
 	}
 	else if (FFloatProperty* fProp = Cast<FFloatProperty>(prop)) {
-		float currentValue = fProp->GetPropertyValue(ptrToProp);
+		const float currentValue = fProp->GetPropertyValue(ptrToProp);
 		if (currentValue != json->AsNumber())
 		{
 			Log(FString("Overwrite FFloatProperty: ").Append(prop->GetName()).Append(" OldValue = ").Append(FString::SanitizeFloat(currentValue)).Append(" NewValue = ").Append(FString::SanitizeFloat(json->AsNumber())), 0);
@@ -115,7 +125,7 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 		}
 	}
 	else if (FIntProperty* iProp = Cast<FIntProperty>(prop)) {
-		int64 currentValue = iProp->GetPropertyValue(ptrToProp);
+		const int64 currentValue = iProp->GetPropertyValue(ptrToProp);
 		if (currentValue != json->AsNumber())
 		{
 			Log(FString("Overwrite FIntProperty: ").Append(prop->GetName()).Append(" OldValue = ").Append(FString::FromInt(currentValue)).Append(" NewValue = ").Append(FString::FromInt(json->AsNumber())), 0);
@@ -123,15 +133,14 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 		}
 	}
 	else if (FBoolProperty* bProp = Cast<FBoolProperty>(prop)) {
-		bool currentValue = bProp->GetPropertyValue(ptrToProp);
+		const bool currentValue = bProp->GetPropertyValue(ptrToProp);
 		if (currentValue != json->AsBool())
 		{
 			Log(FString("Overwrite FBoolProperty: ").Append(prop->GetName()).Append(" OldValue = ").Append(currentValue ? "true" : "false" ).Append(" NewValue = ").Append(json->AsBool() ? "true" : "false"), 0);
 			bProp->SetPropertyValue(ptrToProp, json->AsBool());
 		}
 	}
-	else if (FEnumProperty* eProp = Cast<FEnumProperty>(prop)) {
-		
+	else if (FEnumProperty* eProp = Cast<FEnumProperty>(prop)) {	
 		if (json->Type == EJson::Object)
 		{
 			if (json->AsObject()->HasField("enum") && json->AsObject()->HasField("value"))
@@ -151,8 +160,7 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 					}
 				}
 			}
-		}
-		
+		}	
 	}
 	else if (FByteProperty* byteProp = Cast<FByteProperty>(prop)) {
 		
@@ -210,20 +218,23 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 		}
 	}
 	else if (FArrayProperty* aProp = Cast<FArrayProperty>(prop)) {
-		FScriptArrayHelper helper(aProp, ptrToProp);
-		const TArray<TSharedPtr<FJsonValue>> jsonArr = json->AsArray();
-		// in order to compare values we want to keep values when overwriting children 
-		if (helper.Num() > jsonArr.Num())
+		if (json->Type == EJson::Array)
 		{
-			helper.Resize(jsonArr.Num());	
-		}
-		for (int i = 0; i < jsonArr.Num(); i++) {
-			int64 valueIndex = i;
-			// only add values when size is smaller then requested ptr Slot
-			if (helper.Num() <= i)
-				valueIndex = helper.AddValue();
+			FScriptArrayHelper helper(aProp, ptrToProp);
+			const TArray<TSharedPtr<FJsonValue>> jsonArr = json->AsArray();
+			// in order to compare values we want to keep values when overwriting children 
+			if (helper.Num() > jsonArr.Num())
+			{
+				helper.Resize(jsonArr.Num());
+			}
+			for (int i = 0; i < jsonArr.Num(); i++) {
+				int64 valueIndex = i;
+				// only add values when size is smaller then requested ptr Slot
+				if (helper.Num() <= i)
+					valueIndex = helper.AddValue();
 
-			convertJsonValueToFProperty(jsonArr[i], aProp->Inner, helper.GetRawPtr(valueIndex),Outer);
+				convertJsonValueToFProperty(jsonArr[i], aProp->Inner, helper.GetRawPtr(valueIndex), Outer);
+			}
 		}
 	}
 	else if (FMapProperty* mProp = Cast<FMapProperty>(prop)) {
@@ -276,35 +287,32 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 	else if (FClassProperty* cProp = Cast<FClassProperty>(prop)) {
 		UClass * CastResult = nullptr;
 		if (json->Type == EJson::String) {
-			FString ClassPath = json->AsString();
-			CastResult = LoadObject<UClass>(NULL, *json->AsString());
-			Log(json->AsString(), 1);
-
-			
-			// Failsafe for script classes with BP Stubs
-			if (!CastResult && json->AsString() != "") {
-				CastResult = FSoftClassPath(json->AsString()).TryLoadClass<UClass>();
-				if (!CastResult)
+			const FString ClassPath = json->AsString();
+			if (ClassPath == "")
+			{
+				if (cProp->GetPropertyValue(ptrToProp) != nullptr)
 				{
-					FString Left; FString JsonString = json->AsString(); FString Right;
-					JsonString.Split("/", &Left, &Right, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
-					Right.Split(".", &Left, &JsonString, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
-					if (JsonString != "") {
-						CastResult = FindClassByName(Right);
-					}
-					else
+					Log(FString("Overwrite FClassProperty: ").Append(prop->GetName()).Append(" OldValue = ").Append(cProp->GetPropertyValue(ptrToProp)->GetPathName()).Append(" NewValue = Nullpeter"), 0);
+					cProp->SetPropertyValue(ptrToProp, CastResult);
+				}
+			}
+			else
+			{
+				CastResult = LoadObject<UClass>(NULL, *json->AsString());
+				// Failsafe for script classes with BP Stubs
+				if (!CastResult && json->AsString() != "") {
+					CastResult = FSoftClassPath(json->AsString()).TryLoadClass<UClass>();
+					if (!CastResult)
 					{
-						CastResult = FindClassByName(JsonString);
+						CastResult = FailSafeClassFind(json->AsString());
 					}
 				}
-					
+				if (CastResult && CastResult != cProp->GetPropertyValue(ptrToProp))
+				{
+					Log(FString("Overwrite FClassProperty: ").Append(prop->GetName()).Append(" OldValue = ").Append(cProp->GetPropertyValue(ptrToProp)->GetPathName()).Append(" NewValue = ").Append(CastResult->GetPathName()), 0);
+					cProp->SetPropertyValue(ptrToProp, CastResult);
+				}
 			}
-			
-		
-			Log(FString("Overwrite FClassProperty: ").Append(prop->GetName()).Append(" OldValue = ").Append(cProp->GetPropertyValue(ptrToProp)->GetPathName()).Append(" NewValue = ").Append(CastResult->GetPathName()), 0);
-			cProp->SetPropertyValue(ptrToProp, CastResult);
-			
-
 		}
 	}
 	else if (FObjectProperty* uProp = Cast<FObjectProperty>(prop)) {
@@ -312,55 +320,57 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 		if (json->Type == EJson::Object) {
 			if (json->AsObject()->HasField("object") && json->AsObject()->HasField("class") && json->AsObject()->HasField("objectFlags") && json->AsObject()->HasField("objectName")) {
 				const FString keyvalue = json->AsObject()->TryGetField("class")->AsString();
-				const TSharedPtr<FJsonValue> valuevalue = json->AsObject()->TryGetField("object");
 				const FString Namevalue = json->AsObject()->TryGetField("objectName")->AsString();
-				const TSharedPtr<FJsonValue> Outervalue = json->AsObject()->TryGetField("objectOuter");
+				const TSharedPtr<FJsonValue> ObjectValue = json->AsObject()->TryGetField("object");
+				const TSharedPtr<FJsonValue> OuterValue = json->AsObject()->TryGetField("objectOuter");
 				const EObjectFlags ObjectLoadFlags = (EObjectFlags)json->AsObject()->GetIntegerField((TEXT("objectFlags")));
-				if (valuevalue->Type == EJson::Object) {
-					if (FPackageName::IsValidObjectPath(*keyvalue)) {
-						UClass* InnerBPClass = LoadObject<UClass>(NULL, *keyvalue);
-						if (InnerBPClass) {
-							const TSharedPtr<FJsonObject> Obj = valuevalue->AsObject();
-							UObject* Value = uProp->GetPropertyValue(ptrToProp);
-							if (Value && Value->GetClass() == InnerBPClass)
+				if (ObjectValue->Type == EJson::Object && keyvalue != "") {
+					UClass* InnerBPClass = LoadObject<UClass>(NULL, *keyvalue);
+					if (InnerBPClass) {
+						const TSharedPtr<FJsonObject> Obj = ObjectValue->AsObject();
+						UObject* Value = uProp->GetPropertyValue(ptrToProp);
+						if (Value && Value->GetClass() == InnerBPClass)
+						{
+							UClass* OuterLoaded = LoadObject<UClass>(NULL, *OuterValue->AsString());
+							if (OuterLoaded && OuterLoaded != Outer)
 							{
-								UClass* OuterLoaded = LoadObject<UClass>(NULL, *Outervalue->AsString());
-								if (OuterLoaded && OuterLoaded != Outer)
-								{
-									Log(FString("Overwrite FObjectProperty: ").Append(prop->GetName()).Append(" using != Outer !").Append(keyvalue).Append(" actual Outer : ").Append(OuterLoaded->GetPathName()), 0);
-									convertJsonObjectToUStruct(Obj, InnerBPClass, Value, OuterLoaded);
-								}
-								else
-								{
-									convertJsonObjectToUStruct(Obj, InnerBPClass, Value, Outer);
-								}
+								Log(FString("Overwrite FObjectProperty: ").Append(prop->GetName()).Append(" using != Outer !").Append(keyvalue).Append(" actual Outer : ").Append(OuterLoaded->GetPathName()), 0);
+								convertJsonObjectToUStruct(Obj, InnerBPClass, Value, OuterLoaded);
 							}
 							else
 							{
-								UObject* Template = UObject::GetArchetypeFromRequiredInfo(InnerBPClass, Outer, *Namevalue, ObjectLoadFlags);
-								UObject* Constructed = StaticConstructObject_Internal(InnerBPClass, Outer, *Namevalue, ObjectLoadFlags, EInternalObjectFlags::None, Template);
-								Log(FString("Overwrite FObjectProperty: ").Append(prop->GetName()).Append(" Constructed new Obejct of Class").Append(keyvalue), 0);
-								convertJsonObjectToUStruct(Obj, InnerBPClass, Constructed, Outer);
-								uProp->SetObjectPropertyValue(ptrToProp, Constructed);
+								convertJsonObjectToUStruct(Obj, InnerBPClass, Value, Outer);
 							}
 						}
 						else
 						{
-							Log(FString("Overwrite FObjectProperty: ").Append(prop->GetName()).Append(" Failed to load UClass for Object").Append(keyvalue), 2);
+							UObject* Template = UObject::GetArchetypeFromRequiredInfo(InnerBPClass, Outer, *Namevalue, ObjectLoadFlags);
+							UObject* Constructed = StaticConstructObject_Internal(InnerBPClass, Outer, *Namevalue, ObjectLoadFlags, EInternalObjectFlags::None, Template);
+							Log(FString("Overwrite FObjectProperty: ").Append(prop->GetName()).Append(" Constructed new Obejct of Class").Append(keyvalue), 0);
+							convertJsonObjectToUStruct(Obj, InnerBPClass, Constructed, Outer);
+							uProp->SetObjectPropertyValue(ptrToProp, Constructed);
 						}
 					}
+					else
+					{
+						Log(FString("Overwrite FObjectProperty: ").Append(prop->GetName()).Append(" Failed to load UClass for Object").Append(keyvalue), 2);
+					}
 				}
-				else if (valuevalue->Type == EJson::String) {
+				else if (ObjectValue->Type == EJson::String) {
 
 					UObject* Obj = uProp->GetPropertyValue(ptrToProp);
-					if (valuevalue->AsString() != "") {
-						UObject* uObj = LoadObject<UObject>(NULL, *valuevalue->AsString());
-						
-						Log(FString("Overwrite FObjectProperty: ").Append(prop->GetName()).Append(" Value : ").Append((Obj ? Obj->GetPathName() : FString("nullpeter")).Append(" with: ").Append((uObj? uObj->GetPathName(): FString("nullpeter")))), 0);
-						uProp->SetPropertyValue(ptrToProp, uObj);
-						
-						
-							 					}
+					if (ObjectValue->AsString() != "") {
+						UObject* uObj = LoadObject<UObject>(NULL, *ObjectValue->AsString());
+						if (!uObj)
+						{
+							Log(FString("Skipped Overwrite Reason[Load Fail] FObjectProperty: ").Append(prop->GetName()).Append(" Value : ").Append((Obj ? Obj->GetPathName() : FString("nullpeter")).Append(" with: ").Append((uObj ? uObj->GetPathName() : FString("nullpeter")))), 0);
+						}
+						else
+						{
+							Log(FString("Overwrite FObjectProperty: ").Append(prop->GetName()).Append(" Value : ").Append((Obj ? Obj->GetPathName() : FString("nullpeter")).Append(" with: ").Append((uObj ? uObj->GetPathName() : FString("nullpeter")))), 0);
+							uProp->SetPropertyValue(ptrToProp, uObj);
+						}
+					}
 					else if (Obj)
 					{
 						Log(FString("Overwrite FObjectProperty: ").Append(prop->GetName()).Append(" Value : ").Append(Obj->GetPathName().Append(" with nullpeter")), 0);
@@ -416,7 +426,7 @@ void UJsonStructBPLib::convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, 
 }
 
 
-TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop, void* ptrToProp,bool includeObjects ,TArray<UObject*>& RecursedObjects,bool DeepRecursion) {
+TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop, void* ptrToProp,bool includeObjects ,TArray<UObject*>& RecursedObjects,bool DeepRecursion, TArray<FString> FilteredFields, bool Exclude) {
 	if (FStrProperty* strProp = Cast<FStrProperty>(prop)) {
 		return TSharedPtr<FJsonValue>(new FJsonValueString(strProp->GetPropertyValue(ptrToProp)));
 	}
@@ -468,7 +478,31 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 		auto& arr = aProp->GetPropertyValue(ptrToProp);
 		TArray<TSharedPtr<FJsonValue>> jsonArr;
 		for (int i = 0; i < arr.Num(); i++) {
-			jsonArr.Add(convertUPropToJsonValue(aProp->Inner, (void*)((size_t)arr.GetData() + i * aProp->Inner->ElementSize),includeObjects, RecursedObjects, DeepRecursion));
+			jsonArr.Add(convertUPropToJsonValue(aProp->Inner, (void*)((size_t)arr.GetData() + i * aProp->Inner->ElementSize), includeObjects, RecursedObjects, DeepRecursion, FilteredFields,Exclude));
+		}
+		return TSharedPtr<FJsonValue>(new FJsonValueArray(jsonArr));
+	}
+	else if (FMapProperty* mProp = Cast<FMapProperty>(prop)) {
+		FScriptMapHelper arr(mProp, ptrToProp);
+		TArray<TSharedPtr<FJsonValue>> jsonArr;
+		for (int i = 0; i < arr.Num(); i++) {
+			auto ptr = arr.GetValuePtr(i);
+			
+			TSharedPtr<FJsonValue> key = convertUPropToJsonValue(mProp->KeyProp, arr.GetKeyPtr(i), includeObjects, RecursedObjects, DeepRecursion, FilteredFields,Exclude);
+			TSharedPtr<FJsonValue> value = convertUPropToJsonValue(mProp->ValueProp, arr.GetValuePtr(i), includeObjects, RecursedObjects, DeepRecursion, FilteredFields,Exclude);
+			TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
+			JsonObject->SetField("key", key);
+			JsonObject->SetField("value", value);
+			TSharedPtr<FJsonValueObject> Obj = TSharedPtr<FJsonValueObject>(new FJsonValueObject(JsonObject));
+			jsonArr.Add(Obj);
+		}
+		return TSharedPtr<FJsonValue>(new FJsonValueArray(jsonArr));
+	}
+	else if (FSetProperty* SetProperty = Cast<FSetProperty>(prop)) {
+		auto& arr = SetProperty->GetPropertyValue(ptrToProp);
+		TArray<TSharedPtr<FJsonValue>> jsonArr;
+		for (int i = 0; i < arr.Num(); i++) {
+			jsonArr.Add(convertUPropToJsonValue(SetProperty->ElementProp, (void*)((size_t)arr.GetData(i, SetProperty->SetLayout)), includeObjects, RecursedObjects, DeepRecursion,FilteredFields, Exclude));
 		}
 		return TSharedPtr<FJsonValue>(new FJsonValueArray(jsonArr));
 	}
@@ -477,10 +511,9 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 		{
 			return TSharedPtr<FJsonValue>(new FJsonValueString(cProp->GetPropertyValue(ptrToProp)->GetPathName()));
 		}
-		else 
+		else
 		{
 			return TSharedPtr<FJsonValue>(new FJsonValueString(""));
-
 		}
 	}
 	else if (FWeakObjectProperty* WeakObjectProperty = CastField<FWeakObjectProperty>(prop))
@@ -488,12 +521,10 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 		if (WeakObjectProperty->GetPropertyValue(ptrToProp).IsValid())
 		{
 			return TSharedPtr<FJsonValue>(new FJsonValueString(FSoftObjectPath(WeakObjectProperty->GetPropertyValue(ptrToProp).Get()).ToString()));
-
 		}
 		else
 		{
 			return TSharedPtr<FJsonValue>(new FJsonValueString(""));
-
 		}
 	}
 	// Check to see if this is a simple soft object property (eg. not an array of soft objects).
@@ -502,21 +533,17 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 		if (SoftObjectProperty->GetPropertyValue(ptrToProp).IsValid())
 		{
 			return TSharedPtr<FJsonValue>(new FJsonValueString(SoftObjectProperty->GetPropertyValue(ptrToProp).ToSoftObjectPath().ToString()));
-
 		}
 		else
 		{
 			return TSharedPtr<FJsonValue>(new FJsonValueString(""));
-
 		}
 	}
 	else if (FObjectProperty* oProp = Cast<FObjectProperty>(prop)) {
 		if (ptrToProp && oProp->GetPropertyValue(ptrToProp))
 		{
 			UObject* ObjectValue = oProp->GetPropertyValue(ptrToProp);
-			UClass * BaseClass = ObjectValue->GetClass();
-
-			
+			const UClass* BaseClass = ObjectValue->GetClass();
 			const TSharedPtr<FJsonValue> key = TSharedPtr<FJsonValue>(new FJsonValueString(BaseClass->GetPathName()));
 			const TSharedPtr<FJsonValue> value = TSharedPtr<FJsonValue>(new FJsonValueString(ObjectValue->GetPathName()));
 			TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
@@ -538,25 +565,25 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 			// Object is defaulting to Instanced or we Include Non Instnaced
 			// Property Value must not be nullpeter
 			// Property Object wasnt already serialized or is RootComponent based
-			const bool Condition = includeObjects 
-				&& ((BaseClass->HasAnyClassFlags(EClassFlags::CLASS_DefaultToInstanced) && BaseClass->HasAnyClassFlags(EClassFlags::CLASS_EditInlineNew))|| DeepRecursion)
+			const bool Condition = includeObjects
+				&& ((BaseClass->HasAnyClassFlags(EClassFlags::CLASS_DefaultToInstanced) && BaseClass->HasAnyClassFlags(EClassFlags::CLASS_EditInlineNew)) || DeepRecursion)
 				&& (!RecursedObjects.Contains(ObjectValue)) && RecursedObjects.Num() < 500;
 
 			// skip this if we dont need it 
 			if (Condition) {
 				TSharedPtr<FJsonObject> ChildObj = TSharedPtr<FJsonObject>(new FJsonObject());
 				RecursedObjects.Add(ObjectValue);
-				USceneComponent * Scene = Cast<USceneComponent>(ObjectValue);
+				USceneComponent* Scene = Cast<USceneComponent>(ObjectValue);
 				if (Scene && Scene->GetAttachmentRoot() == ObjectValue)
 				{
 					TArray<USceneComponent*> arr = Scene->GetAttachChildren();
 					for (auto i : arr)
 					{
 						RecursedObjects.Add(i);
-						ChildObj->Values.Add(i->GetName(), TSharedPtr<FJsonValue>(new FJsonValueObject(convertUStructToJsonObject(i->GetClass(), i, includeObjects, RecursedObjects, DeepRecursion))));
+						ChildObj->Values.Add(i->GetName(), TSharedPtr<FJsonValue>(new FJsonValueObject(convertUStructToJsonObject(i->GetClass(), i, includeObjects, RecursedObjects, DeepRecursion, FilteredFields, Exclude))));
 					}
 				}
-				TSharedPtr<FJsonObject> Obj = convertUStructToJsonObject(BaseClass, ObjectValue, includeObjects, RecursedObjects, DeepRecursion);
+				TSharedPtr<FJsonObject> Obj = convertUStructToJsonObject(BaseClass, ObjectValue, includeObjects, RecursedObjects, DeepRecursion, FilteredFields, Exclude);
 				JsonObject->SetField("object", TSharedPtr<FJsonValue>(new FJsonValueObject(Obj)));
 				JsonObject->SetField("objectFlags", TSharedPtr<FJsonValue>(new FJsonValueNumber(int32(ObjectValue->GetFlags()))));
 				JsonObject->SetField("objectName", TSharedPtr<FJsonValue>(new FJsonValueString(ObjectValue->GetName())));
@@ -571,24 +598,8 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 			}
 		}
 	}
-	else if (FMapProperty* mProp = Cast<FMapProperty>(prop)) {
-		FScriptMapHelper arr(mProp, ptrToProp);
-		TArray<TSharedPtr<FJsonValue>> jsonArr;
-		for (int i = 0; i < arr.Num(); i++) {
-			auto ptr = arr.GetValuePtr(i);
-			
-			TSharedPtr<FJsonValue> key = convertUPropToJsonValue(mProp->KeyProp, arr.GetKeyPtr(i), includeObjects, RecursedObjects, DeepRecursion);
-			TSharedPtr<FJsonValue> value = convertUPropToJsonValue(mProp->ValueProp, arr.GetValuePtr(i), includeObjects, RecursedObjects, DeepRecursion);
-			TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
-			JsonObject->SetField("key", key);
-			JsonObject->SetField("value", value);
-			TSharedPtr<FJsonValueObject> Obj = TSharedPtr<FJsonValueObject>(new FJsonValueObject(JsonObject));
-			jsonArr.Add(Obj);
-		}
-		return TSharedPtr<FJsonValue>(new FJsonValueArray(jsonArr));
-	}
 	else if (FStructProperty* sProp = Cast<FStructProperty>(prop)) {
-		return TSharedPtr<FJsonValue>(new FJsonValueObject(convertUStructToJsonObject(sProp->Struct, ptrToProp, includeObjects, RecursedObjects, DeepRecursion)));
+		return TSharedPtr<FJsonValue>(new FJsonValueObject(convertUStructToJsonObject(sProp->Struct, ptrToProp, includeObjects, RecursedObjects, DeepRecursion, FilteredFields, Exclude)));
 	}
 	else if (!DeepRecursion)
 	{
@@ -625,22 +636,13 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 
 		}
 	}
-	else if (FSetProperty* SetProperty = Cast<FSetProperty>(prop)) {
-		auto& arr = SetProperty->GetPropertyValue(ptrToProp);
-		TArray<TSharedPtr<FJsonValue>> jsonArr;
-		for (int i = 0; i < arr.Num(); i++) {
-			jsonArr.Add(convertUPropToJsonValue(SetProperty->ElementProp, (void*)((size_t)arr.GetData(i,SetProperty->SetLayout)), includeObjects, RecursedObjects, DeepRecursion));
-		}
-		return TSharedPtr<FJsonValue>(new FJsonValueArray(jsonArr));
-	}
 	else if (FFieldPathProperty* FieldPath = Cast<FFieldPathProperty>(prop)) {
 	
 		return TSharedPtr<FJsonValue>(new FJsonValueString(FieldPath->PropertyClass->GetName()));
 	}
 	else
 	{
-		// Log error
-		UE_LOG(LogTemp, Error, TEXT("Debug what is this? %s, Type: %s "), *prop->GetName(), *prop->GetClass()->GetName());
+		// Log Debug
 	}
 	return TSharedPtr<FJsonValue>(new FJsonValueNull());
 
@@ -649,7 +651,7 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::convertUPropToJsonValue(FProperty* prop
 void UJsonStructBPLib::InternalGetStructAsJson(FStructProperty *Structure, void* StructurePtr, FString &String, bool RemoveGUID,bool includeObjects)
 {
 	TArray<UObject*> Array;
-	TSharedPtr<FJsonObject> JsonObject = convertUStructToJsonObject(Structure->Struct, StructurePtr, includeObjects, Array,false);
+	TSharedPtr<FJsonObject> JsonObject = convertUStructToJsonObject(Structure->Struct, StructurePtr, includeObjects, Array,false, TArray<FString>(), true);
 	String = JsonObjectToString(JsonObject);
 }
 
@@ -666,7 +668,7 @@ TSharedPtr<FJsonObject> UJsonStructBPLib::ConvertUStructToJsonObjectWithName(USt
 	for (auto prop = TFieldIterator<FProperty>(Struct); prop; ++prop) {
 		FString PropName = RemoveGUID ? RemoveUStructGuid(prop->GetName()) : prop->GetName();
 		TArray<UObject* > RecursedObjects;
-		obj->SetField(PropName, convertUPropToJsonValue(*prop, prop->ContainerPtrToValuePtr<void>(ptrToStruct), RemoveGUID,RecursedObjects,false));
+		obj->SetField(PropName, convertUPropToJsonValue(*prop, prop->ContainerPtrToValuePtr<void>(ptrToStruct), RemoveGUID,RecursedObjects,false,TArray<FString>(), true));
 	}
 	return obj;
 }
@@ -699,25 +701,30 @@ bool UJsonStructBPLib::FillDataTableFromJSONString(UDataTable* DataTable, const 
 	return bResult;
 }
 
-FString UJsonStructBPLib::ClassDefaultsToJsonString(UClass *  ObjectClass, bool ObjectRecursive, UObject * DefaultObject, bool DeepRecursion , bool SkipRoot, bool SkipTransient,bool OnlyEditable)
+TSharedPtr<FJsonObject> UJsonStructBPLib::SetupJsonObject(UClass* Class, UObject* Object)
+{
+	if (!Class)
+		return nullptr;
+
+	TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
+	JsonObject->SetField("LibClass", TSharedPtr<FJsonValue>(new FJsonValueString(Class->IsNative()? Class->GetPathName(): Class->GetSuperClass()->GetPathName())));
+	if (Cast<AActor>(Object) && Object != Class->GetDefaultObject())
+	{
+		JsonObject->SetField("LibTransform", TSharedPtr<FJsonValue>(new FJsonValueString(Cast<AActor>(Object)->GetTransform().ToString())));
+	}
+	JsonObject->SetField("LibOuter", TSharedPtr<FJsonValue>(new FJsonValueString(Object->GetPathName())));
+	return JsonObject;
+}
+
+FString UJsonStructBPLib::ObjectToJsonString(UClass *  ObjectClass, bool ObjectRecursive, UObject * DefaultObject, bool DeepRecursion , bool SkipRoot, bool SkipTransient,bool OnlyEditable)
 {
 	if (!ObjectClass)
 		return"";
 
 	UObject * Object = DefaultObject ? DefaultObject : ObjectClass->GetDefaultObject();
 	if (ObjectClass != NULL) {
-		FString PathName = "";
-		if (ObjectClass->IsNative())
-		{
-			PathName = ObjectClass->GetPathName();
-		}
-		else
-		{
-			PathName = ObjectClass->GetSuperClass()->GetPathName();
-		}
-		TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
-		JsonObject->SetField("LibClass", TSharedPtr<FJsonValue>(new FJsonValueString(PathName)));
-		JsonObject->SetField("LibValue", TSharedPtr<FJsonValue>(new FJsonValueObject(CDOToJson(ObjectClass, Object, ObjectRecursive, DeepRecursion, SkipRoot, SkipTransient, OnlyEditable))));
+		TSharedPtr<FJsonObject> JsonObject = SetupJsonObject(ObjectClass, Object);
+		JsonObject->SetField("LibValue", TSharedPtr<FJsonValue>(new FJsonValueObject(CDOToJson(ObjectClass, Object, ObjectRecursive, DeepRecursion, SkipRoot, SkipTransient, OnlyEditable, TArray<FString>(), true))));
 		return JsonObjectToString(JsonObject);
 	}
 	else
@@ -733,16 +740,12 @@ FString UJsonStructBPLib::JsonObjectToString(TSharedPtr<FJsonObject> JsonObject)
 	return write;
 }
 
-TSharedPtr<FJsonObject> UJsonStructBPLib::CDOToJson(UClass * ObjectClass, UObject* Object, bool ObjectRecursive, bool DeepRecursion, bool SkipRoot,bool SkipTransient,bool OnlyEditable)
+TSharedPtr<FJsonObject> UJsonStructBPLib::CDOToJson(UClass * ObjectClass, UObject* Object, bool ObjectRecursive, bool DeepRecursion, bool SkipRoot,bool SkipTransient,bool OnlyEditable, TArray<FString> FilteredFields, bool Exclude)
 {
 	TArray<UObject* > ResursionArray;
 	TSharedPtr<FJsonObject> Obj = TSharedPtr<FJsonObject>(new FJsonObject());
 
-	if (SkipRoot)
-	{
-
-	}
-	else
+	if (!SkipRoot)
 	{
 		FProperty* RootComponent = nullptr;
 		for (auto prop = TFieldIterator<FProperty>(ObjectClass); prop; ++prop) {
@@ -752,16 +755,26 @@ TSharedPtr<FJsonObject> UJsonStructBPLib::CDOToJson(UClass * ObjectClass, UObjec
 				break;
 			}
 		}
-
 		if (RootComponent)
 		{
-			Obj->SetField(RootComponent->GetName(), convertUPropToJsonValue(RootComponent, RootComponent->ContainerPtrToValuePtr<void>(Object), ObjectRecursive, ResursionArray, DeepRecursion));
+			Obj->SetField(RootComponent->GetName(), convertUPropToJsonValue(RootComponent, RootComponent->ContainerPtrToValuePtr<void>(Object), ObjectRecursive, ResursionArray, DeepRecursion, FilteredFields, Exclude));
 		}
 
 	}
+
 	for (auto prop = TFieldIterator<FProperty>(ObjectClass); prop; ++prop) {
+		if (FilteredFields.Contains(prop->GetName()))
+		{
+			if (Exclude)
+				continue;
+		}
+		else
+		{
+			if (!Exclude)
+				continue;
+		}
 		const bool bEditable = prop->HasAnyPropertyFlags(EPropertyFlags::CPF_Edit);
-		const bool bLikelyOnlyReadable = prop->HasAnyPropertyFlags(EPropertyFlags::CPF_Transient | EPropertyFlags::CPF_Net | CPF_EditConst | CPF_GlobalConfig | CPF_Config );
+		const bool bLikelyOnlyReadable = prop->HasAnyPropertyFlags(EPropertyFlags::CPF_Transient | EPropertyFlags::CPF_Net | CPF_EditConst | CPF_GlobalConfig | CPF_Config);
 		const bool bRootComponent = prop->GetName() == "RootComponent";
 		if (bRootComponent || (bLikelyOnlyReadable  && SkipTransient) || (!bEditable && OnlyEditable))
 		{
@@ -769,36 +782,26 @@ TSharedPtr<FJsonObject> UJsonStructBPLib::CDOToJson(UClass * ObjectClass, UObjec
 		}
 		else
 		{
-
-			TSharedPtr<FJsonValue> value = convertUPropToJsonValue(*prop, prop->ContainerPtrToValuePtr<void>(Object), ObjectRecursive, ResursionArray, DeepRecursion);
+			TSharedPtr<FJsonValue> value = convertUPropToJsonValue(*prop, prop->ContainerPtrToValuePtr<void>(Object), ObjectRecursive, ResursionArray, DeepRecursion, FilteredFields, Exclude);
 			if (value.IsValid() && value->Type != EJson::Null)
 			{
 				Obj->SetField(prop->GetName(), value);
 			}
 		}
 	}
+
 	return Obj;
 }
 
-UBPJsonObject * UJsonStructBPLib::ClassDefaultsToJsonObject(UClass *  ObjectClass, bool ObjectRecursive, UObject * DefaultObject, UObject* Outer, bool DeepRecursion,bool SkipRoot, bool SkipTransient,bool OnlyEditable)
+UBPJsonObject * UJsonStructBPLib::ObjectToJsonObject(UClass *  ObjectClass, bool ObjectRecursive, UObject * DefaultObject, UObject* Outer, bool DeepRecursion,bool SkipRoot, bool SkipTransient,bool OnlyEditable)
 {
 	if (!ObjectClass)
 		return nullptr;
 
 	UObject * Object = DefaultObject ? DefaultObject : ObjectClass->GetDefaultObject();
 	if (ObjectClass != NULL) {
-		FString PathName = "";
-		if (ObjectClass->IsNative())
-		{
-			PathName = ObjectClass->GetPathName();
-		}
-		else
-		{
-			PathName = ObjectClass->GetSuperClass()->GetPathName();
-		}
-		TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
-		JsonObject->SetField("LibClass", TSharedPtr<FJsonValue>(new FJsonValueString(PathName)));
-		JsonObject->SetField("LibValue", TSharedPtr<FJsonValue>(new FJsonValueObject(CDOToJson(ObjectClass, Object, ObjectRecursive, DeepRecursion, SkipRoot, SkipTransient, OnlyEditable))));
+		TSharedPtr<FJsonObject> JsonObject = SetupJsonObject(ObjectClass, Object);
+		JsonObject->SetField("LibValue", TSharedPtr<FJsonValue>(new FJsonValueObject(CDOToJson(ObjectClass, Object, ObjectRecursive, DeepRecursion, SkipRoot, SkipTransient, OnlyEditable, TArray<FString>(), true))));
 		UBPJsonObject * JObj = NewObject<UBPJsonObject>(Outer);
 		JObj->InnerObj = JsonObject;
 		JObj->InitSubObjects();
@@ -807,46 +810,34 @@ UBPJsonObject * UJsonStructBPLib::ClassDefaultsToJsonObject(UClass *  ObjectClas
 	return nullptr;
 }
 
-FString UJsonStructBPLib::CDOFieldsToJsonString(TArray<FString> Fields, UClass * ObjectClass, bool ObjectRecursive, bool Exclude, bool DeepRecursion, bool SkipRoot , bool SkipTransient,bool OnlyEditable)
+
+UBPJsonObject* UJsonStructBPLib::ObjectToJsonObjectFiltered(TArray<FString> Fields, UClass* ObjectClass, UObject* DefaultObject, UObject* Outer, bool ObjectRecursive, bool Exclude, bool DeepRecursion, bool SkipRoot, bool SkipTransient, bool OnlyEditable)
+{
+	if (!ObjectClass)
+		return nullptr;
+
+	UObject* Object = DefaultObject ? DefaultObject : ObjectClass->GetDefaultObject();
+	if (ObjectClass != NULL) {
+		TSharedPtr<FJsonObject> JsonObject = SetupJsonObject(ObjectClass, Object);
+		TSharedPtr<FJsonValue> value = TSharedPtr<FJsonValue>(new FJsonValueObject(CDOToJson(ObjectClass, Object, ObjectRecursive, DeepRecursion, SkipRoot, SkipTransient, OnlyEditable, Fields, Exclude).ToSharedRef()));
+		JsonObject->SetField("LibValue", value);	
+		UBPJsonObject* JObj = NewObject<UBPJsonObject>(Outer);
+		JObj->InnerObj = JsonObject;
+		JObj->InitSubObjects();
+		return JObj;
+	}
+	return nullptr;
+}
+
+FString UJsonStructBPLib::ObjectToJsonStringFiltered(TArray<FString> Fields, UClass * ObjectClass,  UObject* DefaultObject, bool ObjectRecursive, bool Exclude, bool DeepRecursion, bool SkipRoot , bool SkipTransient,bool OnlyEditable)
 {
 	if (!ObjectClass)
 		return"";
 
-	UObject * Object = ObjectClass->GetDefaultObject();
+	UObject* Object = DefaultObject ? DefaultObject : ObjectClass->GetDefaultObject();
 	if (ObjectClass != NULL) {
-		FString PathName = "";
-		if (ObjectClass->IsNative())
-		{
-			PathName = ObjectClass->GetPathName();
-		}
-		else
-		{
-			PathName = ObjectClass->GetSuperClass()->GetPathName();
-		}
-		TSharedPtr<FJsonObject> JsonObject = TSharedPtr<FJsonObject>(new FJsonObject());
-		JsonObject->SetField("LibClass", TSharedPtr<FJsonValue>(new FJsonValueString(PathName)));
-		TSharedRef<FJsonObject> Ref = CDOToJson(ObjectClass, Object, ObjectRecursive, DeepRecursion, SkipRoot, SkipTransient, OnlyEditable).ToSharedRef();
-		TMap<FString, TSharedPtr<FJsonValue>> ValueCopy = Ref->Values;
-		for (auto i : ValueCopy)
-		{
-			FString FieldName = i.Key;
-			if (!Exclude)
-			{
-				if (!Fields.Contains(FieldName))
-				{
-					Ref->Values.Remove(i.Key);
-				}
-			}
-			else
-			{
-				if (Fields.Contains(FieldName))
-				{
-					Ref->Values.Remove(i.Key);
-				}
-			}
-			
-		}
-		TSharedPtr<FJsonValue> value = TSharedPtr<FJsonValue>(new FJsonValueObject(Ref));
+		TSharedPtr<FJsonObject> JsonObject = SetupJsonObject(ObjectClass, Object);
+		TSharedPtr<FJsonValue> value = TSharedPtr<FJsonValue>(new FJsonValueObject(CDOToJson(ObjectClass, Object, ObjectRecursive, DeepRecursion, SkipRoot, SkipTransient, OnlyEditable, Fields, Exclude).ToSharedRef()));
 		JsonObject->SetField("LibValue", value);
 		return JsonObjectToString(JsonObject);
 	}
@@ -858,17 +849,44 @@ FString UJsonStructBPLib::CDOFieldsToJsonString(TArray<FString> Fields, UClass *
 
 
 // Function Arch wrote we borrow here
+// changed UClass to UDynamicClass and added MountPoint Registration incase of this being on one
 UClass* UJsonStructBPLib::CreateNewClass(const FString& ClassName, const FString& PackageName, UClass * ParentClass, const FString& MountPoint)
 {
+	if (ClassName != "" && FPackageName::DoesPackageNameContainInvalidCharacters(ClassName) && PackageName != "" && FPackageName::DoesPackageNameContainInvalidCharacters(PackageName))
+	{
+		FString Left; FString Right;
+		if (!PackageName.Split("/", &Left, &Right))
+		{
+			Log("PackageName must start with a / ", 2);
+			return nullptr;
+		}
+		if (!Right.Split("/", &Left, &Right))
+		{
+			Log("PackageName must have a SubFolder", 2);
+			return nullptr;
+		}
+		if (Left == "" || Left.Contains("/") || FPackageName::DoesPackageNameContainInvalidCharacters(Left))
+		{
+			Log("Failed to Parse MountPoint", 2);
+			return nullptr;
+		}
+		FString ClassMountPoint = Left;
+
+		if (FPackageName::GetPackageMountPoint(ClassMountPoint) == FName())
+		{
+			FPackageName::RegisterMountPoint(ClassMountPoint, FPaths::ProjectModsDir() + ClassMountPoint);
+			FPackageLocalizationManager::Get().ConditionalUpdateCache();
+		}
+	}
+	else
+		return nullptr;
+
 	const EClassFlags ParamsClassFlags = CLASS_Native | CLASS_MatchedSerializers;
+
+	
+
 	//Code below is taken from GetPrivateStaticClassBody
 	//Allocate memory from ObjectAllocator for class object and call class constructor directly
-	if (FPackageName::GetPackageMountPoint(MountPoint) == FName())
-	{
-		FPackageName::RegisterMountPoint(MountPoint, FPaths::ProjectModsDir() + MountPoint);
-		FPackageLocalizationManager::Get().ConditionalUpdateCache();
-	}
-	
 	UClass* ConstructedClassObject = (UClass*)GUObjectAllocator.AllocateUObject(sizeof(UDynamicClass), alignof(UDynamicClass), true);
 	::new (ConstructedClassObject)UDynamicClass(
 		EC_StaticConstructor,
@@ -912,7 +930,16 @@ UClass* UJsonStructBPLib::CreateNewClass(const FString& ClassName, const FString
 }
 
 
+// Tries to spawn an Actor with exact name to World
+AActor* UJsonStructBPLib::SpawnActorWithName(UObject * WorldContext, UClass* C, FName Name)
+{
+	if (!WorldContext || !WorldContext->GetWorld() || !C)
+		return nullptr;
 
+	FActorSpawnParameters spawnParams;
+	spawnParams.Name = Name;
+	return WorldContext->GetWorld()->SpawnActor<AActor>(C, spawnParams);
+}
 
 UClass *  UJsonStructBPLib::FailSafeClassFind(FString String)
 {
@@ -1059,6 +1086,13 @@ UBPJsonObjectValue * UJsonStructBPLib::Conv_BoolToBPJsonObjectValue(bool & Value
 	return out;
 }
 
+FTransform  UJsonStructBPLib::Conv_StringToTransform(FString String)
+{
+	FTransform T = FTransform();
+	T.InitFromString(*String);
+	return T;
+}
+
 TArray<UBPJsonObjectValue *> UJsonStructBPLib::Conv_BPJsonObjectToBPJsonObjectValue(UBPJsonObject * Value)
 {
 	TArray<UBPJsonObjectValue *> out;
@@ -1075,3 +1109,41 @@ TArray<UBPJsonObjectValue *> UJsonStructBPLib::Conv_BPJsonObjectToBPJsonObjectVa
 }
 
 UBPJsonObject * UJsonStructBPLib::Conv_UBPJsonObjectValueToBPJsonObject(UBPJsonObjectValue * Value) { if (!Value) return nullptr; return Value->AsObject(); }
+
+void UJsonStructBPLib::Conv_UClassToUProeprtyFieldNames(UStruct* Class, TArray<FString>& Array , bool Recurse) {
+	if (Array.Num() > 500)
+		return;
+	for (auto prop = TFieldIterator<FProperty>(Class); prop; ++prop) {
+		if (Recurse)
+		{
+			if (Cast<FObjectProperty>(*prop) && Cast<UClass>(Class))
+			{
+				UObject* ObjectValue = Cast<FObjectProperty>(*prop)->GetPropertyValue(prop->ContainerPtrToValuePtr<void>(Cast<UClass>(Class)->GetDefaultObject()));
+				if (ObjectValue && ObjectValue->GetClass())
+				{
+					Conv_UClassToUProeprtyFieldNames(ObjectValue->GetClass(), Array,Recurse);
+				}
+			}
+			else if (Cast<FClassProperty>(*prop) && Cast<UClass>(Class))
+			{
+				UObject* ObjectValue = Cast<FClassProperty>(*prop)->GetPropertyValue(prop->ContainerPtrToValuePtr<void>(Cast<UClass>(Class)->GetDefaultObject()));
+
+				if (ObjectValue && ObjectValue->GetClass())
+				{
+					Conv_UClassToUProeprtyFieldNames(ObjectValue->GetClass(), Array, Recurse);
+				}
+			}
+			
+			else if (Cast<FStructProperty>(*prop))
+			{
+				Conv_UClassToUProeprtyFieldNames(Cast<FStructProperty>(*prop)->Struct, Array, Recurse);
+			}
+			
+
+
+		}
+		if(!Array.Contains(prop->GetName()))
+			Array.Add(prop->GetName());
+	}
+}
+

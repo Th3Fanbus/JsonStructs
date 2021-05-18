@@ -50,6 +50,9 @@ public:
 	static bool GetDirectoriesInPath(const FString& FullPathOfBaseDir, TArray<FString>& DirsOut, const FString& NotContainsStr = "", bool Recursive = false, const FString& ContainsStr = "");
 	
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
+	static void String_Sort(UPARAM(ref)TArray<FString>& Array_To_Sort, bool Descending, bool FilterToUnique, TArray<FString>& Sorted_Array);
+	
+	UFUNCTION(BlueprintCallable, Category = "Utilities")
 	static void WriteStringToFile(FString FilePath, FString String, bool Relative = true);
 
 	UFUNCTION(BlueprintCallable, Category = "Utilities")

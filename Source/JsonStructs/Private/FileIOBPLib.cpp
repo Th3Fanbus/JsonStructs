@@ -87,6 +87,38 @@ bool UFileIOBPLib::GetDirectoriesInPath(const FString& FullPathOfBaseDir, TArray
 	}
 }
 
+void UFileIOBPLib::String_Sort(UPARAM(ref) TArray <FString>& Array_To_Sort, bool Descending, bool FilterToUnique,  TArray <FString>& Sorted_Array)
+{
+	if (FilterToUnique)
+	{
+		for (auto i : Array_To_Sort)
+		{
+			if (FilterToUnique)
+			{
+				if (!Sorted_Array.Contains(i))
+				{
+					Sorted_Array.Add(i); 
+				}
+			}
+		}
+	}
+	Sorted_Array.Sort();               // Sort array using built in function (sorts A-Z)
+
+	if (Descending == true)
+	{
+		TArray <FString> newarray;      // Define "temp" holding array
+		int x = Sorted_Array.Num() - 1;
+
+		while (x > -1)
+		{
+			newarray.Add(Sorted_Array[x]); // loop through A-Z sorted array and remove element from back and place it in beginning of "temp" array
+			--x;
+		}
+
+		Sorted_Array = newarray;   // Set reference array to "temp" array order, array is now Z-A
+	}
+}
+
 
 bool UFileIOBPLib::GetFilesInPath(const FString& FullPathOfBaseDir, TArray<FString>& FilenamesOut, bool Recursive, const FString& FilterByExtension)
 {

@@ -33,11 +33,13 @@ public:
 	UBPJsonObjectValue() { 
 		ValueObject = nullptr;
 		Parent = nullptr;
+		FieldName = "";
 	};
 
 	void InitSubObject(FString Name, UBPJsonObject* Parent);
 
-	FString FieldName = "";
+	FString FieldName;
+
 	UPROPERTY(BlueprintReadOnly)
 	UBPJsonObject* ValueObject; 
 	UPROPERTY(BlueprintReadOnly)
