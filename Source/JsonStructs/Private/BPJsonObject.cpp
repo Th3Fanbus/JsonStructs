@@ -1,71 +1,46 @@
 #include "BPJsonObject.h"
 
 
-UBPJsonObject::UBPJsonObject()
+FBPJsonObject::FBPJsonObject(): InnerObj(nullptr) ,FieldName(""), JsonType(EBPJson::BPJSON_Null)
 {
-	Values = {};
-};
-
-void UBPJsonObject::InitSubObjects()
-{
-	if (InnerObj.IsValid())
-	{
-		for (auto Field : InnerObj->Values)
-		{
-			UBPJsonObjectValue* Obj = NewObject<UBPJsonObjectValue>(this);
-			Values.Add(Field.Key, Obj);
-			Obj->InitSubObject(Field.Key, this);
-
-		}
-	}
-};
-TArray<FString> UBPJsonObject::GetFieldNames()
-{
-	TArray<FString> Out;
-	if (!InnerObj)
-		return Out;
-	
-	for (auto i : Values)
-	{
-		Out.Add(i.Key);
-	}
-	return Out;
 }
 
-FString UBPJsonObject::GetJsonStringField(const FString Name, bool SearchNested)
+FBPJsonObject::FBPJsonObject(const EBPJson JsonTypeIn, const TSharedPtr<FJsonObject> JsonObject, const FString FieldNameIn):
+	InnerObj(JsonObject), FieldName(FieldNameIn), JsonType(JsonTypeIn)
+{
+}
+
+FString FBPJsonObject::GetJsonStringField(const FString Name, const bool SearchNested) const
 {
 	if (!InnerObj)
 		return "";
 
 	FString Out = "";
-	if (Values.Contains(Name))
+	if (InnerObj->Values.Contains(Name))
 	{
-		UBPJsonObjectValue* val = *Values.Find(Name);
-		if (val)
-		{
-			return val->AsString();
-		}
+		const TSharedPtr<FJsonValue> Val = *InnerObj->Values.Find(Name);
+		return Val->AsString();
 	}
 	else if (SearchNested)
 	{
-		if (Values.Num() == 0)
+		if (InnerObj->Values.Num() == 0)
 			return Out;
 		
-		for (auto i : InnerObj->Values)
+		for (const auto i : InnerObj->Values)
 		{
-			auto val = i.Value;
-			if (val->Type == EJson::Object)
+			const TSharedPtr<FJsonValue> Val = i.Value;
+			if (Val->Type == EJson::Object)
 			{
-				const TSharedPtr<FJsonObject>& Object = val->AsObject();
+				const TSharedPtr<FJsonObject>& Object = Val->AsObject();
 				if (Object->HasField(Name))
 				{
 					return Object->GetStringField(Name);
 				}
 			}
-			else if (val->Type == EJson::Array)
+			else if (Val->Type == EJson::Array)
 			{
-				const TArray < TSharedPtr<FJsonValue>>& Array = val->AsArray();
-				for (auto Element : Array)
+				const TArray < TSharedPtr<FJsonValue>>& Array = Val->AsArray();
+				for (const TSharedPtr<FJsonValue> Element : Array)
 				{
 					if (Element->Type == EJson::Object)
 					{
@@ -82,46 +57,42 @@ FString UBPJsonObject::GetJsonStringField(const FString Name, bool SearchNested)
 	return Out;
 }
 
-float UBPJsonObject::GetJsonNumberField(const FString Name, bool SearchNested)
-{
+float FBPJsonObject::GetJsonNumberField(const FString Name, const bool SearchNested) const
+{	
 	if (!InnerObj)
 		return 0.f;
-	float Out = 0.f;
 
-	if (Values.Contains(Name))
+	if (InnerObj->Values.Contains(Name))
 	{
-		auto  val = *Values.Find(Name);
-		if (val)
-		{
-			return val->AsNumber();
-		}
+		const TSharedPtr<FJsonValue>  Val = *InnerObj->Values.Find(Name);
+		return Val->AsNumber();
 	}
 	else if (SearchNested)
 	{
 
-		if (Values.Num() == 0)
-			return Out;
+		if (InnerObj->Values.Num() == 0)
+			return 0.f;
 
-		for (auto Value : InnerObj->Values)
+		for (const auto Value : InnerObj->Values)
 		{
-			auto val = Value.Value;
-			if (val->Type == EJson::Object)
+			const TSharedPtr<FJsonValue> Val = Value.Value;
+			if (Val->Type == EJson::Object)
 			{
-				if (val->AsObject()->HasField(Name))
+				if (Val->AsObject()->HasField(Name))
 				{
-					auto NestedObjectField = val->AsObject()->TryGetField(Name);
+					const TSharedPtr<FJsonValue> NestedObjectField = Val->AsObject()->TryGetField(Name);
 					if(NestedObjectField->Type == EJson::Number)
 						return NestedObjectField->AsNumber();
 				}
 			}
-			else if (val->Type == EJson::Array)
+			else if (Val->Type == EJson::Array)
 			{
-				auto NestedArray = val->AsArray();
+				auto NestedArray = Val->AsArray();
 				for (auto NestedArrayElement : NestedArray)
 				{
-					if (val->AsObject()->HasField(Name))
+					if (Val->AsObject()->HasField(Name))
 					{
-						auto NestedObjectField = val->AsObject()->TryGetField(Name);
+						const TSharedPtr<FJsonValue> NestedObjectField = Val->AsObject()->TryGetField(Name);
 						if (NestedObjectField->Type == EJson::Number)
 							return NestedObjectField->AsNumber();
 					}
@@ -131,110 +102,214 @@ float UBPJsonObject::GetJsonNumberField(const FString Name, bool SearchNested)
 		}
 
 	}
-	return Out;
+	return 0.f;
 }
 
-EBPJson UBPJsonObject::GetFieldType(const FString Name)
+
+void FBPJsonObject::SetJsonStringField(const FString Name, const FString Value) const
 {
 	if (!InnerObj)
-		return EBPJson::BPJSON_Null;
-	else
+		return;
+	if (InnerObj->Values.Contains(Name))
 	{
-		auto Field = InnerObj->TryGetField(Name);
-		if (!Field)
-			return EBPJson::BPJSON_Null;
-		switch (Field->Type)
+		auto val = *InnerObj->Values.Find(Name);
+		if (val->Type == EJson::String)
 		{
-		case EJson::Array:
-		{
-			return EBPJson::BPJSON_Array;
-			break;
+			const TSharedPtr<FJsonValueString> JsonObject = MakeShared<FJsonValueString>(Value);
+			val = JsonObject;
 		}
-		case EJson::Boolean:
+		else if (val->Type == EJson::Number)
 		{
-			return EBPJson::BPJSON_Boolean;
-			break;
+			if (!Value.IsNumeric())
+				return;
+
+			const int32 Property = static_cast<int32>(FCString::Atof(*Value));
+
+			const TSharedPtr<FJsonValueNumber> JsonObject = MakeShared<FJsonValueNumber>(Property);
+			val = JsonObject;
 		}
-		case EJson::None:
+		else if (val->Type == EJson::Boolean)
 		{
-			return EBPJson::BPJSON_None;
-			break;
-		}
-		case EJson::Null:
-		{
-			return EBPJson::BPJSON_Null;
-			break;
-		}
-		case EJson::Number:
-		{
-			return EBPJson::BPJSON_Number;
-			break;
-		}
-		case EJson::Object:
-		{
-			return EBPJson::BPJSON_Object;
-			break;
-		}
-		case EJson::String:
-		{
-			return EBPJson::BPJSON_String;
-			break;
-		}
-		default:
-			return EBPJson::BPJSON_Null;
-			break;
+			if (!Value.IsNumeric())
+				return;
+
+			bool Property = static_cast<bool>(FCString::Atof(*Value));
+			const TSharedPtr<FJsonValueBoolean> JsonObject = MakeShared<FJsonValueBoolean>(Property);
+			val = JsonObject;
 		}
 	}
+}
+void FBPJsonObject::SetJsonNumberField(const FString Name, const float Value) const
+{
+	if (!InnerObj)
+		return;
+	if (InnerObj->Values.Contains(Name))
+	{
+		TSharedPtr<FJsonValue> Val = *InnerObj->Values.Find(Name);
+		if (Val->Type == EJson::String)
+		{
+			Val =  MakeShared<FJsonValueString>(FString::FromInt(Value));
+		}
+		else if (Val->Type == EJson::Number)
+		{
+			Val = MakeShared<FJsonValueNumber>(Value);
+		}
+		else if (Val->Type == EJson::Boolean)
+		{
+			Val = MakeShared<FJsonValueBoolean>(static_cast<bool>(Value));
+		}
+	}
+}
+
+
+
+
+
+
+FString FBPJsonObject::AsString() const
+{
+	
+	if (!InnerObj.IsValid())
+		return "";
+	if (!InnerObj->Values.Contains(FieldName))
+		return "";
+	const TSharedPtr<FJsonValue> Val = *InnerObj->Values.Find(FieldName);
+	if (Val->Type == EJson::Object) {
+		if (Val->AsObject())
+			if (Val->AsObject()->Values.Num() == 1)
+			{
+				for (auto i : Val->AsObject()->Values)
+				{
+					if (i.Value->Type == EJson::String)
+						return i.Value->AsString();
+					else
+						break;
+				}
+			}
+	}
+	return Val->AsString();
+};
+
+float FBPJsonObject::AsNumber() const
+{	
+	if (!InnerObj.IsValid())
+		return 0.f;
+	if (!InnerObj->Values.Contains(FieldName))
+		return 0.f;
+	const TSharedPtr<FJsonValue> Val = *InnerObj->Values.Find(FieldName);
+
+	if (Val->Type == EJson::Object) {
+		if (Val->AsObject())
+			if (Val->AsObject()->Values.Num() == 1)
+			{
+				for (auto i : Val->AsObject()->Values)
+				{
+					if (i.Value->Type == EJson::Number)
+						return i.Value->AsNumber();
+					else
+						break;
+				}
+			}
+	}
+	else if (Val->Type == EJson::Number)
+	{
+		return Val->AsNumber();
+	}
+	else if (Val->Type == EJson::String)
+	{
+		const FString Var = Val->AsString();
+		if (Var.IsNumeric())
+		{
+			const float Num = FCString::Atof(*Var);
+			return Num;
+		}
+	}
+	
+	return 0;
 
 };
 
-void UBPJsonObject::SetJsonStringField(const FString Name, const FString Value)
+bool FBPJsonObject::AsBoolean() const
 {
-	if (!InnerObj)
+	
+	if (!InnerObj.IsValid())
+		return false;
+	if (!InnerObj->Values.Contains(FieldName))
+		return false;
+
+	const TSharedPtr<FJsonValue> Val = *InnerObj->Values.Find(FieldName);
+
+	if (Val->Type == EJson::Object) {
+		if (Val->AsObject())
+			if (Val->AsObject()->Values.Num() == 1)
+			{
+				for (auto i : Val->AsObject()->Values)
+				{
+					if (Val->Type == EJson::Boolean)
+						return i.Value->AsBool();
+					else
+						break;
+				}
+			}
+	}
+	else if(Val->Type == EJson::Boolean)
+	{
+		return Val->AsBool();
+	}
+	
+	return false;
+}
+
+void FBPJsonObject::SetValueFromNumber(int32 Number) const
+{
+	
+	if (!InnerObj.IsValid())
 		return;
-	if (Values.Contains(Name))
+
+	TSharedPtr<FJsonValue> Val = *InnerObj->Values.Find(FieldName);
+
+	if (Val->Type == EJson::String)
 	{
-		UBPJsonObjectValue* value = *Values.Find(Name);
-		value->SetValueFromString(Value);
+		Val =  MakeShared<FJsonValueString>(FString::FromInt(Number));
+	}
+	else if (Val->Type == EJson::Number)
+	{
+		Val = MakeShared<FJsonValueNumber>(Number);
+	}
+	else if (Val->Type == EJson::Boolean)
+	{
+		Val = MakeShared<FJsonValueBoolean>(static_cast<bool>(Number));
 	}
 }
-void UBPJsonObject::SetJsonNumberField(const FString Name, const float Value)
+
+void FBPJsonObject::SetValueFromString(FString String) const
 {
-	if (!InnerObj)
+	
+	if (!InnerObj.IsValid())
 		return;
-	if (Values.Contains(Name))
+
+	TSharedPtr<FJsonValue> Val = *InnerObj->Values.Find(FieldName);
+
+	
+	if (Val->Type == EJson::String)
 	{
-		UBPJsonObjectValue* value = *Values.Find(Name);
-		value->SetValueFromNumber(Value);
+		Val =  MakeShared<FJsonValueString>(String);
+	}
+	else if (Val->Type == EJson::Number)
+	{
+		if (!String.IsNumeric())
+			return;
+		Val = MakeShared<FJsonValueNumber>(static_cast<int32>(FCString::Atof(*String)));
+	}
+	else if (Val->Type == EJson::Boolean)
+	{
+		if (!String.IsNumeric())
+			return;
+		Val = MakeShared<FJsonValueBoolean>(static_cast<bool>(FCString::Atof(*String)));
 	}
 }
 
-UBPJsonObject * UBPJsonObject::GetStringAsJson(UPARAM(ref)FString & String, UObject * Outer)
-{
-	if (String == "")
-		return nullptr;
-	TSharedRef<TJsonReader<>> reader = TJsonReaderFactory<>::Create(*String);
-	FJsonSerializer Serializer;
-	TSharedPtr<FJsonObject> result;
-	Serializer.Deserialize(reader, result);
 
-	UBPJsonObject * Obj = NewObject<UBPJsonObject>(Outer);
-	if(!Obj)
-		return nullptr;
-	else
-	{
-		Obj->InnerObj = result;
-		Obj->InitSubObjects();
-		return Obj;
-	}
-}
 
-FString UBPJsonObject::GetAsString()
-{
-	if (!InnerObj)
-		return "";
-	FString write;
-	TSharedRef<TJsonWriter<wchar_t, TPrettyJsonPrintPolicy<wchar_t>>> JsonWriter = TJsonWriterFactory<wchar_t, TPrettyJsonPrintPolicy<wchar_t>>::Create(&write); //Our Writer Factory
-	FJsonSerializer::Serialize(InnerObj.ToSharedRef(), JsonWriter);
-	return write;
-}
+
+

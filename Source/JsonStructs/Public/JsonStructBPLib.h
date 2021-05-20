@@ -28,11 +28,11 @@ class JSONSTRUCTS_API UJsonStructBPLib : public UBlueprintFunctionLibrary
 	static FString RemoveUStructGuid(FString String);
 	static UClass* FindClassByName(FString ClassNameInput);
 
-	static TSharedPtr<FJsonValue> convertUPropToJsonValue(FProperty* prop, void* ptrToProp, bool includeObjects, TArray<UObject*>& RecursedObjects, bool IncludeNonInstanced, TArray<FString> FilteredFields, bool Exclude);
-	static TSharedPtr<FJsonObject> convertUStructToJsonObject(const UStruct* Struct, void* ptrToStruct, bool includeObjects, TArray<UObject*>& RecursedObjects, bool IncludeNonInstanced, TArray<FString> FilteredFields, bool Exclude);
-	static void convertJsonObjectToUStruct(TSharedPtr<FJsonObject> json, UStruct* Struct, void* ptrToStruct, UObject* Outer);
-	static void convertJsonValueToFProperty(TSharedPtr<FJsonValue> json, FProperty* prop, void* ptrToProp, UObject* Outer);
-	static void InternalGetStructAsJson(FStructProperty* Structure, void* StructurePtr, FString& String, bool RemoveGUID = false, bool includeObjects = false);
+	static TSharedPtr<FJsonValue> Conv_FPropertyToJsonValue(FProperty* Prop, void* Ptr, bool IncludeObjects, TArray<UObject*>& RecursionArray, bool IncludeNonInstanced, TArray<FString> FilteredFields, bool Exclude);
+	static TSharedPtr<FJsonObject> Conv_UStructToJsonObject(const UStruct* Struct, void* Ptr, bool IncludeObjects, TArray<UObject*>& RecursionArray, bool IncludeNonInstanced, TArray<FString> FilteredFields, bool Exclude);
+	static void Conv_JsonObjectToUStruct(TSharedPtr<FJsonObject> json, UStruct* Struct, void* Ptr, UObject* Outer);
+	static void Conv_JsonValueToFProperty(TSharedPtr<FJsonValue> json, FProperty* Prop, void* Ptr, UObject* Outer);
+	static void InternalGetStructAsJson(FStructProperty* Structure, void* StructurePtr, FString& String, bool RemoveGUID = false, bool IncludeObjects = false);
 
 	static void InternalGetStructAsJsonForTable(FStructProperty* Structure, void* StructurePtr, FString& String, bool RemoveGUID, FString Name);
 	static TSharedPtr<FJsonObject> ConvertUStructToJsonObjectWithName(UStruct* Struct, void* ptrToStruct, bool RemoveGUID, FString Name);
@@ -88,7 +88,7 @@ public:
 		FJsonSerializer Serializer;
 		TSharedPtr<FJsonObject> result;
 		Serializer.Deserialize(reader, result);
-		convertJsonObjectToUStruct(result, Struct->Struct, StructPtr,nullptr);
+		Conv_JsonObjectToUStruct(result, Struct->Struct, StructPtr,nullptr);
 	}
 	DECLARE_FUNCTION(execGetJsonFromStruct)
 	{
@@ -110,10 +110,10 @@ public:
 		static FString ObjectToJsonString(UClass * Value ,bool ObjectRecursive = false, UObject * DefaultObject= nullptr,bool DeepRecursion = false, bool SkipRoot= false, bool SkipTransient= false,bool OnlyEditable = false);
 
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
-		static UBPJsonObject * ObjectToJsonObject(UClass * ObjectClass, bool ObjectRecursive, UObject * DefaultObject, UObject* Outer, bool DeepRecursion = false, bool SkipRoot = false, bool SkipTransient = false,bool OnlyEditable = false);
+		static void ObjectToJsonObject(UClass * ObjectClass, bool ObjectRecursive, UObject * DefaultObject, UObject* Outer, bool DeepRecursion , bool SkipRoot , bool SkipTransient ,bool OnlyEditable, FBPJsonObject& Object);
 
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
-		static UBPJsonObject* ObjectToJsonObjectFiltered(TArray<FString> Fields, UClass* ObjectClass, UObject* DefaultObject, UObject* Outer, bool ObjectRecursive, bool Exclude, bool DeepRecursion, bool SkipRoot, bool SkipTransient, bool OnlyEditable);
+		static void ObjectToJsonObjectFiltered(TArray<FString> Fields, UClass* ObjectClass, UObject* DefaultObject, UObject* Outer, bool ObjectRecursive, bool Exclude, bool DeepRecursion, bool SkipRoot, bool SkipTransient, bool OnlyEditable, FBPJsonObject& Object);
 
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
 		static FString ObjectToJsonStringFiltered(TArray<FString> Fields, UClass * Value, UObject* DefaultObject, bool ObjectRecursive = false, bool Exclude = false, bool DeepRecursion = false, bool SkipRoot = false, bool SkipTransient = false,bool OnlyEditable = false);
@@ -133,42 +133,11 @@ public:
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "IsNative", CompactNodeTitle = "IsNative", BlueprintAutocast), Category = "Utilities")
 		static bool IsNative(UClass* Class) { if (!Class) return false;  return Class->IsNative(); };
 
-
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "A JsonValue String Conversion", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
-		static FString Conv_BPJsonObjectValueToString(UBPJsonObjectValue * Value);
-	
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "Json Value to Float", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
-		static float Conv_BPJsonObjectValueToFloat(UBPJsonObjectValue * Value);
-
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "Json Value to Float", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
-		static int32 Conv_BPJsonObjectValueToInt(UBPJsonObjectValue * Value);
-
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "Json Value to Bool", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
-		static bool Conv_BPJsonObjectValueToBool(UBPJsonObjectValue * Value);
-
-
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "A JsonValue String Conversion", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
-		static UBPJsonObjectValue * Conv_StringToBPJsonObjectValue(FString & Value);
-
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "Float to JsonValue", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
-		static UBPJsonObjectValue * Conv_FloatToBPJsonObjectValue(float & Value);
-	
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "Int to JsonValue", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
-		static UBPJsonObjectValue * Conv_IntToBPJsonObjectValue(int32 & Value);
-	
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "Bool to JsonValue", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
-		static UBPJsonObjectValue * Conv_BoolToBPJsonObjectValue(bool & Value);
-	
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "String to Transform", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
 		static FTransform Conv_StringToTransform(FString String);
 
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "JsonObject to JsonObjectValues", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
-		static TArray<UBPJsonObjectValue *>  Conv_BPJsonObjectToBPJsonObjectValue(UBPJsonObject * Value);
-
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "JsonObjectValue to JsonObject", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities")
-		static UBPJsonObject * Conv_UBPJsonObjectValueToBPJsonObject(UBPJsonObjectValue * Value);
 
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "UClass to UProperty FieldNames", CompactNodeTitle = "->", BlueprintAutocast, CustomThunk,CustomStructureParam = "Structure"), Category = "Utilities")
-		static void Conv_UClassToUProeprtyFieldNames(UStruct* Structure, TArray<FString>& Array, bool Recurse);
+		static void Conv_UClassToPropertyFieldNames(UStruct* Structure, TArray<FString>& Array, bool Recurse);
 
 };
