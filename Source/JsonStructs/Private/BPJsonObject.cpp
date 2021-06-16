@@ -59,7 +59,7 @@ FString FBPJsonObject::GetJsonStringField(const FString Name, const bool SearchN
 
 float FBPJsonObject::GetJsonNumberField(const FString Name, const bool SearchNested) const
 {	
-	if (!InnerObj)
+	if (!InnerObj.IsValid())
 		return 0.f;
 
 	if (InnerObj->Values.Contains(Name))
@@ -75,6 +75,9 @@ float FBPJsonObject::GetJsonNumberField(const FString Name, const bool SearchNes
 
 		for (const auto Value : InnerObj->Values)
 		{
+			if (!Value.Value.IsValid())
+				continue;
+
 			const TSharedPtr<FJsonValue> Val = Value.Value;
 			if (Val->Type == EJson::Object)
 			{
@@ -243,7 +246,7 @@ bool FBPJsonObject::AsBoolean() const
 		if (Val->AsObject())
 			if (Val->AsObject()->Values.Num() == 1)
 			{
-				for (auto i : Val->AsObject()->Values)
+				for (const auto i : Val->AsObject()->Values)
 				{
 					if (Val->Type == EJson::Boolean)
 						return i.Value->AsBool();

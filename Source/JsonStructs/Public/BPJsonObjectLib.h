@@ -20,17 +20,23 @@ public:
 	static EBPJson FromEJson(EJson Value);
 	
 	UFUNCTION(BlueprintCallable, Category = "Utilities", meta = (CompactNodeTitle = "Set"))
-	static void SetValueFromNumber(UPARAM(ref)FBPJsonObject & Object,const int32 Value);
+		static void SetValueFromNumber(UPARAM(ref)FBPJsonObject & Object,const int32 Value);
 	
 	UFUNCTION(BlueprintCallable, Category = "Utilities", meta = (CompactNodeTitle = "Set"))
-	static void SetValueFromString(UPARAM(ref)FBPJsonObject & Object,const FString Value);
+		static void SetValueFromString(UPARAM(ref)FBPJsonObject & Object,const FString Value);
 	
 	UFUNCTION(BlueprintCallable, Category = "Utilities", meta = (CompactNodeTitle = "Set"))
-	static void SetJsonStringField(UPARAM(ref)FBPJsonObject & Object,const FString Name, const FString Value);
+		static void SetJsonStringField(UPARAM(ref)FBPJsonObject & Object,const FString Name, const FString Value);
 	
 	UFUNCTION(BlueprintCallable, Category = "Utilities", meta = (CompactNodeTitle = "Set"))
-	static void SetJsonNumberField(UPARAM(ref)FBPJsonObject & Object,const FString Name, const float Value);
-	
+		static void SetJsonNumberField(UPARAM(ref)FBPJsonObject & Object,const FString Name, const float Value);
+
+
+
+
+	UFUNCTION(BlueprintPure, Category = "Utilities", meta = (CompactNodeTitle = "Get"))
+		static FBPJsonObject GetJsonField(UPARAM(ref)FBPJsonObject & Object,const FString Name);
+
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Json String as BPJsonObject"), Category = "Utilities")
 		static FBPJsonObject JsonStringToBPJsonObject(UPARAM(ref)FString &String);
 	
@@ -73,6 +79,10 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (CompactNodeTitle = "Remove"), Category = "Utilities")
 		static void RemoveFromParent(UPARAM(ref)FBPJsonObject & Value);
 
-	
+	UFUNCTION(BlueprintCallable, Category = "Utilities", meta = (CompactNodeTitle = "Remove"))
+		static void RemoveField(UPARAM(ref)FBPJsonObject & Object,const FString Name);
+
+	UFUNCTION(BlueprintCallable, Category = "Utilities", meta = (CompactNodeTitle = "Remove"))
+		 static void AddField(UPARAM(ref)FBPJsonObject & Object,const FString Name,UPARAM(ref)FBPJsonObject & FieldValue);
 
 };

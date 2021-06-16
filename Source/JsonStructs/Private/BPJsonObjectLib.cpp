@@ -69,6 +69,29 @@ void UBPJsonObjectLib::SetJsonNumberField(FBPJsonObject& Object, const FString N
 	Object.SetJsonNumberField(Name,Value);
 }
 
+FBPJsonObject UBPJsonObjectLib::GetJsonField(FBPJsonObject& Object, const FString Name)
+{
+	if(Object.InnerObj.IsValid() && Object.JsonType == BPJSON_Object || Object.JsonType == BPJSON_Array)
+	{
+		if(Object.InnerObj->Values.Contains(Name))
+		{
+	
+			const TSharedPtr<FJsonValue> Obj = *Object.InnerObj->Values.Find(Name);
+			if(Obj->Type == EJson::Object)
+			{
+				return FBPJsonObject(FromEJson(Obj->Type), Obj->AsObject(), Name);
+			
+			}
+			else if (Obj->Type != EJson::Null)
+			{
+				return FBPJsonObject(FromEJson(Obj->Type), Object.InnerObj, Name);
+			}
+			
+		}
+	}
+	return FBPJsonObject();
+}
+
 FBPJsonObject UBPJsonObjectLib::JsonStringToBPJsonObject(FString & String)
 {
 	if (String == "")
@@ -159,28 +182,31 @@ TArray<FString> UBPJsonObjectLib::Conv_BPJsonObjectToStringArray(const FBPJsonOb
 	TArray<FString> Fields;
 	if (Obj.JsonType == BPJSON_Object)
 	{
-		if (Obj.InnerObj.IsValid() && Obj.FieldName == "")
+		if (Obj.InnerObj.IsValid() && Obj.FieldName == "Lib_ValueObject")
 		{
 			for (auto Field : Obj.InnerObj->Values)
 			{
 				Fields.Add(Field.Key);
 			}
 		}
-		else
+		else if (Obj.InnerObj.IsValid())
 		{
 			const TSharedPtr<FJsonValue> InnerField = Obj.InnerObj->TryGetField(Obj.FieldName);
-			if(InnerField->Type == EJson::Object)
+			if (InnerField)
 			{
-				for (auto Field : InnerField->AsObject()->Values)
+				if (InnerField->Type == EJson::Object)
 				{
-					Fields.Add(Field.Key);
+					for (auto Field : InnerField->AsObject()->Values)
+					{
+						Fields.Add(Field.Key);
+					}
 				}
 			}
 		}
 	}
 	else if (Obj.JsonType == BPJSON_Array)
 	{
-		if (Obj.InnerObj.IsValid() && Obj.FieldName != "")
+		if (Obj.InnerObj.IsValid() && Obj.FieldName != "Lib_ValueObject")
 		{
 			const TSharedPtr<FJsonValue> InnerField = Obj.InnerObj->TryGetField(Obj.FieldName);
 			int32 Ind = 0;
@@ -198,7 +224,7 @@ EBPJson UBPJsonObjectLib::Conv_BPJsonObjectToBPJson(const FBPJsonObject & Obj)
 {
 	if (!Obj.InnerObj.IsValid())
 		return EBPJson::BPJSON_Null;
-	else if (Obj.FieldName != "")
+	else if (Obj.FieldName != "Lib_ValueObject")
 	{
 		const TSharedPtr<FJsonValue> Field = Obj.InnerObj->TryGetField(Obj.FieldName);
 		if (Field.IsValid())
@@ -240,41 +266,72 @@ FBPJsonObject UBPJsonObjectLib::Conv_FloatToBPJsonObject( float & Value)
 {
 	const TSharedPtr<FJsonValue> Val = MakeShared<FJsonValueNumber>(Value);
 	TSharedPtr<FJsonObject> Obj = MakeShared<FJsonObject>();
-	Obj->Values.Add("",Val);
-	return FBPJsonObject(EBPJson::BPJSON_Number, Obj, "");
+	Obj->Values.Add("Lib_ValueObject",Val);
+	return FBPJsonObject(EBPJson::BPJSON_Number, Obj, "Lib_ValueObject");
 }
 
 FBPJsonObject UBPJsonObjectLib::Conv_IntToBPJsonObject(int32 & Value)
 {
 	const TSharedPtr<FJsonValue>  Val = MakeShared<FJsonValueNumber>(Value);
 	TSharedPtr<FJsonObject> Obj = MakeShared<FJsonObject>();
-	Obj->Values.Add("",Val);
-	return FBPJsonObject(EBPJson::BPJSON_Number, Obj, "");
+	Obj->Values.Add("Lib_ValueObject",Val);
+	return FBPJsonObject(EBPJson::BPJSON_Number, Obj, "Lib_ValueObject");
 }
 
 FBPJsonObject UBPJsonObjectLib::Conv_BoolToBPJsonObject(bool & Value)
 {
 	const TSharedPtr<FJsonValue> Val = MakeShared<FJsonValueBoolean>(Value);
 	TSharedPtr<FJsonObject> Obj = MakeShared<FJsonObject>();
-	Obj->Values.Add("",Val);
-	return FBPJsonObject(EBPJson::BPJSON_Boolean, Obj, "");
+	Obj->Values.Add("Lib_ValueObject",Val);
+	return FBPJsonObject(EBPJson::BPJSON_Boolean, Obj, "Lib_ValueObject");
 }
 
 FBPJsonObject UBPJsonObjectLib::Conv_StringToBPJsonObject(FString& Value)
 {
 	const TSharedPtr<FJsonValue> Val = MakeShared<FJsonValueString>(Value);
 	TSharedPtr<FJsonObject> Obj = MakeShared<FJsonObject>();
-	Obj->Values.Add("",Val);
-	return FBPJsonObject(EBPJson::BPJSON_Boolean, Obj, "");
+	Obj->Values.Add("Lib_ValueObject",Val);
+	return FBPJsonObject(EBPJson::BPJSON_Boolean, Obj, "Lib_ValueObject");
 }
 
 void UBPJsonObjectLib::RemoveFromParent(FBPJsonObject& Value)
 {
-	if (Value.FieldName != "" && Value.InnerObj.IsValid())
+	if (Value.FieldName != "Lib_ValueObject" && Value.InnerObj.IsValid())
 	{
 		if(Value.InnerObj->HasField(Value.FieldName))
 		{
 			Value.InnerObj->RemoveField(Value.FieldName);
+		}
+	}
+}
+
+void UBPJsonObjectLib::RemoveField(FBPJsonObject& Object, const FString Name)
+{
+	if (Object.InnerObj.IsValid())
+	{
+		if(Object.InnerObj->HasField(Name))
+		{
+			Object.InnerObj->RemoveField(Name);
+		}
+	}
+}
+
+void UBPJsonObjectLib::AddField(FBPJsonObject& Object, const FString Name, FBPJsonObject& FieldValue)
+{
+	// FieldName is == "Lib_ValueObject" for Objects that dont have an Outer
+	if (Object.InnerObj.IsValid() && FieldValue.FieldName == "Lib_ValueObject")
+	{
+		if(FieldValue.JsonType  == EBPJson::BPJSON_Object || FieldValue.JsonType  == EBPJson::BPJSON_Array)
+		{
+			const TSharedPtr<FJsonValue> Val = MakeShared<FJsonValueObject>(FieldValue.InnerObj);
+			if(Val.IsValid())
+				Object.InnerObj->Values.Add(Name,Val);
+		}
+		else
+		{
+			const TSharedPtr<FJsonValue> Val = FieldValue.InnerObj->TryGetField("Lib_ValueObject");
+			if(Val.IsValid())
+				Object.InnerObj->Values.Add(Name,Val);
 		}
 	}
 }

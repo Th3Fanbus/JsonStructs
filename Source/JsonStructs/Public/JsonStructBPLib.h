@@ -8,6 +8,7 @@
 #include "Serialization/ObjectReader.h" 
 #include "JsonStructBPLib.generated.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(JsonStructs_Log, Log, Log);
 
 
 /**
@@ -31,11 +32,11 @@ class JSONSTRUCTS_API UJsonStructBPLib : public UBlueprintFunctionLibrary
 	static TSharedPtr<FJsonValue> Conv_FPropertyToJsonValue(FProperty* Prop, void* Ptr, bool IncludeObjects, TArray<UObject*>& RecursionArray, bool IncludeNonInstanced, TArray<FString> FilteredFields, bool Exclude);
 	static TSharedPtr<FJsonObject> Conv_UStructToJsonObject(const UStruct* Struct, void* Ptr, bool IncludeObjects, TArray<UObject*>& RecursionArray, bool IncludeNonInstanced, TArray<FString> FilteredFields, bool Exclude);
 	static void Conv_JsonObjectToUStruct(TSharedPtr<FJsonObject> json, UStruct* Struct, void* Ptr, UObject* Outer);
-	static void Conv_JsonValueToFProperty(TSharedPtr<FJsonValue> json, FProperty* Prop, void* Ptr, UObject* Outer);
+	static void Conv_JsonValueToFProperty(TSharedPtr<FJsonValue> json, FProperty* Prop, void* Ptr, UObject* Outer,bool DoLog = true);
 	static void InternalGetStructAsJson(FStructProperty* Structure, void* StructurePtr, FString& String, bool RemoveGUID = false, bool IncludeObjects = false);
 
 	static void InternalGetStructAsJsonForTable(FStructProperty* Structure, void* StructurePtr, FString& String, bool RemoveGUID, FString Name);
-	static TSharedPtr<FJsonObject> ConvertUStructToJsonObjectWithName(UStruct* Struct, void* ptrToStruct, bool RemoveGUID, FString Name);
+	static TSharedPtr<FJsonObject> ConvertUStructToJsonObjectWithName(UStruct* Struct, void* Ptr, bool RemoveGUID, FString Name);
 
 	static FString JsonObjectToString(TSharedPtr<FJsonObject> JsonObject);
 
@@ -53,14 +54,14 @@ public:
 		FString RowName;
 		Stack.StepCompiledIn<FStrProperty>(&RowName);
 		PARAM_PASSED_BY_REF(String, FStrProperty, FString);
-		Stack.Step(Stack.Object, NULL);
+		Stack.Step(Stack.Object, nullptr);
 
-		FStructProperty* StructureProperty = Cast<FStructProperty>(Stack.MostRecentProperty);
+		FStructProperty* StructureProperty = CastField<FStructProperty>(Stack.MostRecentProperty);
 
 		void* StructurePtr = Stack.MostRecentPropertyAddress;
 
 		P_FINISH;
-		InternalGetStructAsJsonForTable(StructureProperty, StructurePtr, String, false, RowName);
+		InternalGetStructAsJsonForTable(StructureProperty , StructurePtr, String, false, RowName);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "JsonStructs")
@@ -68,43 +69,40 @@ public:
 
 	// Json String from Struct
 	UFUNCTION(BlueprintCallable, Category = "JsonStructs", CustomThunk, meta = (CustomStructureParam = "Structure"))
-		static void GetStructFromJson(const FString& String ,UPARAM(ref) bool Structure);
+		static void StructFromJsonDirect(const FString& String , UStruct* Structure);
 	// Get Struct from Json
 	UFUNCTION(BlueprintCallable, Category = "JsonStructs", CustomThunk, meta = (CustomStructureParam = "Structure"))
-		static void GetJsonFromStruct(FString &String, UStruct * Structure);
+		static void GetJsonFromStructDirect(UPARAM(ref)FString & String , UStruct * Structure);
 
-	DECLARE_FUNCTION(execGetStructFromJson) {
+	DECLARE_FUNCTION(execStructFromJsonDirect) {
 		FString String;
 
 		Stack.StepCompiledIn<FStrProperty>(&String);
-		Stack.Step(Stack.Object, NULL);
+		Stack.Step(Stack.Object, nullptr);
 
-		FStructProperty* Struct = Cast<FStructProperty>(Stack.MostRecentProperty);
+		FStructProperty* Struct = CastField<FStructProperty>(Stack.MostRecentProperty);
 		void* StructPtr = Stack.MostRecentPropertyAddress;
 
 		P_FINISH;
 
-		TSharedRef<TJsonReader<>> reader = TJsonReaderFactory<>::Create(*String);
+		const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(*String);
 		FJsonSerializer Serializer;
-		TSharedPtr<FJsonObject> result;
-		Serializer.Deserialize(reader, result);
-		Conv_JsonObjectToUStruct(result, Struct->Struct, StructPtr,nullptr);
+		TSharedPtr<FJsonObject> Result;
+		Serializer.Deserialize(Reader, Result);
+		Conv_JsonObjectToUStruct(Result, Struct->Struct, StructPtr, nullptr);
 	}
-	DECLARE_FUNCTION(execGetJsonFromStruct)
+	DECLARE_FUNCTION(execGetJsonFromStructDirect)
 	{
-
 		PARAM_PASSED_BY_REF(String, FStrProperty, FString);
-		Stack.Step(Stack.Object, NULL);
+		Stack.Step(Stack.Object, nullptr);
 
-		FStructProperty* StructureProperty = Cast<FStructProperty>(Stack.MostRecentProperty);
+		FStructProperty* StructureProperty = CastField<FStructProperty>(Stack.MostRecentProperty);
 
 		void* StructurePtr = Stack.MostRecentPropertyAddress;
 
 		P_FINISH;
 		InternalGetStructAsJson(StructureProperty, StructurePtr, String, false);
-		UE_LOG(LogTemp, Error, TEXT("%s"),*String);
 	}
-
 
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
 		static FString ObjectToJsonString(UClass * Value ,bool ObjectRecursive = false, UObject * DefaultObject= nullptr,bool DeepRecursion = false, bool SkipRoot= false, bool SkipTransient= false,bool OnlyEditable = false);
@@ -128,7 +126,7 @@ public:
 		static AActor* SpawnActorWithName(UObject* WorldContext, UClass* C, FName Name);
 
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
-		static UClass* CreateNewClass(const FString& ClassName, const FString& PackageName, UClass* ParentClass, const FString& MountPoint);
+		static UClass* CreateNewClass(const FString& ClassName, const FString& PackageName, UClass* ParentClass);
 
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "IsNative", CompactNodeTitle = "IsNative", BlueprintAutocast), Category = "Utilities")
 		static bool IsNative(UClass* Class) { if (!Class) return false;  return Class->IsNative(); };

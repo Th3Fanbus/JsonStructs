@@ -106,16 +106,16 @@ void UFileIOBPLib::String_Sort(UPARAM(ref) TArray <FString>& Array_To_Sort, bool
 
 	if (Descending == true)
 	{
-		TArray <FString> newarray;      // Define "temp" holding array
+		TArray <FString> NewArray;      // Define "temp" holding array
 		int x = Sorted_Array.Num() - 1;
 
 		while (x > -1)
 		{
-			newarray.Add(Sorted_Array[x]); // loop through A-Z sorted array and remove element from back and place it in beginning of "temp" array
+			NewArray.Add(Sorted_Array[x]); // loop through A-Z sorted array and remove element from back and place it in beginning of "temp" array
 			--x;
 		}
 
-		Sorted_Array = newarray;   // Set reference array to "temp" array order, array is now Z-A
+		Sorted_Array = NewArray;   // Set reference array to "temp" array order, array is now Z-A
 	}
 }
 
@@ -193,15 +193,15 @@ void UFileIOBPLib::GetAllScriptClassFolders(TArray<FString>& Folders, FString St
 
 		if (Name.Split(StartsWith, &Left, &Right, ESearchCase::IgnoreCase, ESearchDir::FromStart))
 		{
-			bool condition = Right.Split("/", &Left, &G, ESearchCase::IgnoreCase, ESearchDir::FromStart);
-			if (!condition && Right != "")
+			const bool bCondition = Right.Split("/", &Left, &G, ESearchCase::IgnoreCase, ESearchDir::FromStart);
+			if (!bCondition && Right != "")
 			{
 				if (!Folders.Contains(Right))
 				{
 					Folders.Add(Right);
 				}
 			}
-			else if (condition)
+			else if (bCondition)
 			{
 				if (!Folders.Contains(Left))
 				{
@@ -238,9 +238,9 @@ void UFileIOBPLib::GetAllScriptClassesInPath(TArray<UClass*>& Classes, FString P
 		FString Name = It->GetPathName();
 		if (Name.Split(Path, &Left, &Right))
 		{
-			bool condition = Right.Split(".", &Left, &Right);
+			const bool bCondition = Right.Split(".", &Left, &Right);
 
-			if (condition && !UniqueFolders.Contains(Right) && (Left == ""))
+			if (bCondition && !UniqueFolders.Contains(Right) && (Left == ""))
 			{
 				UniqueFolders.Add(Right);
 				Classes.Add(*It);
