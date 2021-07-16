@@ -182,31 +182,30 @@ TArray<FString> UBPJsonObjectLib::Conv_BPJsonObjectToStringArray(const FBPJsonOb
 	TArray<FString> Fields;
 	if (Obj.JsonType == BPJSON_Object)
 	{
-		if (Obj.InnerObj.IsValid() && Obj.FieldName == "Lib_ValueObject")
+		if (Obj.InnerObj.IsValid())
 		{
-			for (auto Field : Obj.InnerObj->Values)
+			if (Obj.InnerObj->Values.Contains(Obj.FieldName))
 			{
-				Fields.Add(Field.Key);
-			}
-		}
-		else if (Obj.InnerObj.IsValid())
-		{
-			const TSharedPtr<FJsonValue> InnerField = Obj.InnerObj->TryGetField(Obj.FieldName);
-			if (InnerField)
-			{
-				if (InnerField->Type == EJson::Object)
+				const TSharedPtr<FJsonValue> InnerField = Obj.InnerObj->TryGetField(Obj.FieldName);
+				for (auto i : InnerField->AsObject()->Values)
 				{
-					for (auto Field : InnerField->AsObject()->Values)
-					{
-						Fields.Add(Field.Key);
-					}
+					Fields.Add(i.Key);
 				}
 			}
+			else
+			{
+				for (auto Field : Obj.InnerObj->Values)
+				{
+					Fields.Add(Field.Key);
+				}
+			}
+			
 		}
+		
 	}
-	else if (Obj.JsonType == BPJSON_Array)
+	else if (Obj.JsonType == EBPJson::BPJSON_Array)
 	{
-		if (Obj.InnerObj.IsValid() && Obj.FieldName != "Lib_ValueObject")
+		if (Obj.InnerObj.IsValid())
 		{
 			const TSharedPtr<FJsonValue> InnerField = Obj.InnerObj->TryGetField(Obj.FieldName);
 			int32 Ind = 0;
