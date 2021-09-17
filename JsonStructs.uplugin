@@ -1,9 +1,10 @@
 {
 	"FileVersion": 3,
-	"Version": 1,
-	"VersionName": "1.0",
+	"Version": 0,
+	"SemVersion": "0.1.0",
+	"VersionName": "0.1.0",
 	"FriendlyName": "JsonStructs",
-	"Description": "Panas Json code with missing Field types",
+	"Description": "UProperty Serialization helper Lib",
 	"Category": "Other",
 	"CreatedBy": "Nog",
 	"CreatedByURL": "",
@@ -19,6 +20,13 @@
 			"Name": "JsonStructs",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "SML",
+			"Enabled": true,
+			"SemVersion": ">=3.0.0"
 		}
 	]
 }
