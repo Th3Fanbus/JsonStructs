@@ -1,16 +1,16 @@
 {
 	"FileVersion": 3,
 	"Version": 0,
-	"SemVersion": "0.1.0",
-	"VersionName": "0.1.0",
+	"SemVersion": "0.2.0",
+	"VersionName": "0.2.0",
 	"FriendlyName": "JsonStructs",
 	"Description": "UProperty Serialization helper Lib",
-	"Category": "Other",
+	"Category": "Modding",
 	"CreatedBy": "Nog",
-	"CreatedByURL": "",
-	"DocsURL": "",
-	"MarketplaceURL": "",
-	"SupportURL": "",
+	"CreatedByURL": "https://ficsit.app/mod/D5hAq4qaqxLvZm",
+	"DocsURL": "https://github.com/Nogg-aholic/JsonStructs",
+	"MarketplaceURL": "https://ficsit.app/mod/D5hAq4qaqxLvZm",
+	"SupportURL": "http://discord.gg/zqp6U7Y7Nu",
 	"CanContainContent": false,
 	"IsBetaVersion": false,
 	"IsExperimentalVersion": false,
@@ -26,7 +26,7 @@
 		{
 			"Name": "SML",
 			"Enabled": true,
-			"SemVersion": ">=3.0.0"
+			"SemVersion": ">=3.3.0"
 		}
 	]
 }
