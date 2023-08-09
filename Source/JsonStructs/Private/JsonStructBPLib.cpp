@@ -1005,8 +1005,9 @@ FString UJsonStructBPLib::ObjectToJsonStringFiltered(TArray<FString> Fields, UCl
 
 // Function Arch wrote we borrow here
 // changed UClass to UDynamicClass and added MountPoint Registration in case of this being on one
-UClass* UJsonStructBPLib::CreateNewClass(const FString& ClassName, const FString& PackageName, UClass * ParentClass)
-{
+//UClass* UJsonStructBPLib::CreateNewClass(const FString& ClassName, const FString& PackageName, UClass * ParentClass)
+//{
+	/*
 	if (ClassName != "" && FPackageName::DoesPackageNameContainInvalidCharacters(ClassName) && PackageName != "" && FPackageName::DoesPackageNameContainInvalidCharacters(PackageName))
 	{
 		FString Left; FString Right;
@@ -1081,8 +1082,9 @@ UClass* UJsonStructBPLib::CreateNewClass(const FString& ClassName, const FString
 	ConstructedClassObject->GetDefaultObject();
 	
 	return ConstructedClassObject;
-
-}
+	*/
+	/*return nullptr;*/
+//}
 
 
 // Tries to spawn an Actor with exact name to World

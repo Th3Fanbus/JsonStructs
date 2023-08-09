@@ -1,8 +1,8 @@
 {
 	"FileVersion": 3,
-	"Version": 0,
-	"SemVersion": "0.2.0",
-	"VersionName": "0.2.0",
+	"Version": 1,
+	"SemVersion": "1.0.0",
+	"VersionName": "1.0.0",
 	"FriendlyName": "JsonStructs",
 	"Description": "UProperty Serialization helper Lib",
 	"Category": "Modding",
@@ -26,7 +26,7 @@
 		{
 			"Name": "SML",
 			"Enabled": true,
-			"SemVersion": ">=3.3.0"
+			"SemVersion": ">=3.5.0"
 		}
 	]
 }

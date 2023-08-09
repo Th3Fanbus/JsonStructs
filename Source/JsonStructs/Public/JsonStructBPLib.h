@@ -125,8 +125,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Utilities")
 		static AActor* SpawnActorWithName(UObject* WorldContext, UClass* C, FName Name);
 
-	UFUNCTION(BlueprintCallable, Category = "Utilities")
-		static UClass* CreateNewClass(const FString& ClassName, const FString& PackageName, UClass* ParentClass);
+	//UFUNCTION(BlueprintCallable, Category = "Utilities")
+		//static UClass* CreateNewClass(const FString& ClassName, const FString& PackageName, UClass* ParentClass);
 
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "IsNative", CompactNodeTitle = "IsNative", BlueprintAutocast), Category = "Utilities")
 		static bool IsNative(UClass* Class) { if (!Class) return false;  return Class->IsNative(); };
