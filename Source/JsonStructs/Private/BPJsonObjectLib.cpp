@@ -71,7 +71,7 @@ void UBPJsonObjectLib::SetJsonNumberField(FBPJsonObject& Object, const FString N
 
 FBPJsonObject UBPJsonObjectLib::GetJsonField(FBPJsonObject& Object, const FString Name)
 {
-	if(Object.InnerObj.IsValid() && Object.JsonType == BPJSON_Object || Object.JsonType == BPJSON_Array)
+	if(Object.InnerObj.IsValid() && (Object.JsonType == BPJSON_Object || Object.JsonType == BPJSON_Array))
 	{
 		if(Object.InnerObj->Values.Contains(Name))
 		{
@@ -109,7 +109,7 @@ FString UBPJsonObjectLib::BPJsonObjectToJsonString(const FBPJsonObject & Object)
 	if (!Object.InnerObj)
 		return "";
 	FString Write;
-	const TSharedRef<TJsonWriter<wchar_t, TPrettyJsonPrintPolicy<wchar_t>>> JsonWriter = TJsonWriterFactory<wchar_t, TPrettyJsonPrintPolicy<wchar_t>>::Create(&Write); //Our Writer Factory
+	const TSharedRef<TJsonWriter<TCHAR, TPrettyJsonPrintPolicy<TCHAR>>> JsonWriter = TJsonWriterFactory<TCHAR, TPrettyJsonPrintPolicy<TCHAR>>::Create(&Write); //Our Writer Factory
 	FJsonSerializer::Serialize(Object.InnerObj.ToSharedRef(), JsonWriter);
 	return Write;
 }

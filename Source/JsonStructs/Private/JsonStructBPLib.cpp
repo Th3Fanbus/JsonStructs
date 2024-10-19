@@ -82,7 +82,7 @@ TSharedPtr<FJsonObject> UJsonStructBPLib::Conv_UStructToJsonObject(const UStruct
 void UJsonStructBPLib::Conv_JsonObjectToUStruct(TSharedPtr<FJsonObject> json, UStruct* Struct, void* Ptr,UObject* Outer) {
 	if (!json)
 		return;
-	for (const auto Field : json->Values) {
+	for (const auto& Field : json->Values) {
 		const FString FieldName = Field.Key;
 		const auto Prop = Struct->FindPropertyByName(*FieldName);
 		if (Prop) {
@@ -468,7 +468,13 @@ void UJsonStructBPLib::Conv_JsonValueToFProperty(TSharedPtr<FJsonValue> json, FP
 						else
 						{
 							UObject* Template = UObject::GetArchetypeFromRequiredInfo(InnerBPClass, Outer, *NameValue, ObjectLoadFlags);
-							UObject* Constructed = StaticConstructObject_Internal(InnerBPClass, Outer, *NameValue, ObjectLoadFlags, EInternalObjectFlags::None, Template);
+							auto params = FStaticConstructObjectParameters(InnerBPClass);
+							params.Outer = Outer;
+							params.Name = *NameValue;
+							params.SetFlags = ObjectLoadFlags;
+							params.InternalSetFlags = EInternalObjectFlags::None;
+							params.Template = Template;
+							UObject* Constructed = StaticConstructObject_Internal(params);
 							if (DoLog)
 								Log(FString("Overwrite FObjectProperty: ").Append(Prop->GetName()).Append(" Constructed new Object of Class").Append(KeyValue), 0);
 							Conv_JsonObjectToUStruct(Obj, InnerBPClass, Constructed, Outer);
@@ -692,7 +698,7 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::Conv_FPropertyToJsonValue(FProperty* Pr
 
 
 			// Everything that is streamable or AssetUserData ( aka Mesh's and Textures etc ) will be skipped
-			for (auto i : BaseClass->Interfaces)
+			for (auto& i : BaseClass->Interfaces)
 			{
 				if (i.Class == UInterface_AssetUserData::StaticClass() || i.Class == UStreamableRenderAsset::StaticClass())
 				{
@@ -889,7 +895,7 @@ FString UJsonStructBPLib::ObjectToJsonString(UClass *  ObjectClass, const bool O
 FString UJsonStructBPLib::JsonObjectToString(TSharedPtr<FJsonObject> JsonObject)
 {
 	FString Write;
-	const TSharedRef<TJsonWriter<wchar_t, TPrettyJsonPrintPolicy<wchar_t>>> JsonWriter = TJsonWriterFactory<wchar_t, TPrettyJsonPrintPolicy<wchar_t>>::Create(&Write); //Our Writer Factory
+	const TSharedRef<TJsonWriter<TCHAR, TPrettyJsonPrintPolicy<TCHAR>>> JsonWriter = TJsonWriterFactory<TCHAR, TPrettyJsonPrintPolicy<TCHAR>>::Create(&Write); //Our Writer Factory
 	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), JsonWriter);
 	return Write;
 }

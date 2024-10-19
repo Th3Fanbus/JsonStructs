@@ -26,7 +26,7 @@ FString FBPJsonObject::GetJsonStringField(const FString Name, const bool SearchN
 		if (InnerObj->Values.Num() == 0)
 			return Out;
 		
-		for (const auto i : InnerObj->Values)
+		for (const auto& i : InnerObj->Values)
 		{
 			const TSharedPtr<FJsonValue> Val = i.Value;
 			if (Val->Type == EJson::Object)
@@ -40,7 +40,7 @@ FString FBPJsonObject::GetJsonStringField(const FString Name, const bool SearchN
 			else if (Val->Type == EJson::Array)
 			{
 				const TArray < TSharedPtr<FJsonValue>>& Array = Val->AsArray();
-				for (const TSharedPtr<FJsonValue> Element : Array)
+				for (const TSharedPtr<FJsonValue>& Element : Array)
 				{
 					if (Element->Type == EJson::Object)
 					{
@@ -73,7 +73,7 @@ float FBPJsonObject::GetJsonNumberField(const FString Name, const bool SearchNes
 		if (InnerObj->Values.Num() == 0)
 			return 0.f;
 
-		for (const auto Value : InnerObj->Values)
+		for (const auto& Value : InnerObj->Values)
 		{
 			if (!Value.Value.IsValid())
 				continue;
@@ -90,8 +90,8 @@ float FBPJsonObject::GetJsonNumberField(const FString Name, const bool SearchNes
 			}
 			else if (Val->Type == EJson::Array)
 			{
-				auto NestedArray = Val->AsArray();
-				for (auto NestedArrayElement : NestedArray)
+				auto& NestedArray = Val->AsArray();
+				for (auto& NestedArrayElement : NestedArray)
 				{
 					if (Val->AsObject()->HasField(Name))
 					{
@@ -181,7 +181,7 @@ FString FBPJsonObject::AsString() const
 		if (Val->AsObject())
 			if (Val->AsObject()->Values.Num() == 1)
 			{
-				for (auto i : Val->AsObject()->Values)
+				for (auto& i : Val->AsObject()->Values)
 				{
 					if (i.Value->Type == EJson::String)
 						return i.Value->AsString();
@@ -205,7 +205,7 @@ float FBPJsonObject::AsNumber() const
 		if (Val->AsObject())
 			if (Val->AsObject()->Values.Num() == 1)
 			{
-				for (auto i : Val->AsObject()->Values)
+				for (auto& i : Val->AsObject()->Values)
 				{
 					if (i.Value->Type == EJson::Number)
 						return i.Value->AsNumber();
@@ -246,7 +246,7 @@ bool FBPJsonObject::AsBoolean() const
 		if (Val->AsObject())
 			if (Val->AsObject()->Values.Num() == 1)
 			{
-				for (const auto i : Val->AsObject()->Values)
+				for (const auto& i : Val->AsObject()->Values)
 				{
 					if (Val->Type == EJson::Boolean)
 						return i.Value->AsBool();

@@ -91,7 +91,7 @@ void UFileIOBPLib::String_Sort(UPARAM(ref) TArray <FString>& Array_To_Sort, bool
 {
 	if (FilterToUnique)
 	{
-		for (auto i : Array_To_Sort)
+		for (auto& i : Array_To_Sort)
 		{
 			if (FilterToUnique)
 			{

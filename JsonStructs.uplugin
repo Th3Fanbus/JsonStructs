@@ -1,8 +1,8 @@
 {
 	"FileVersion": 3,
 	"Version": 1,
-	"SemVersion": "1.0.1",
-	"VersionName": "1.0.1",
+	"SemVersion": "1.0.2",
+	"VersionName": "1.0.2",
 	"FriendlyName": "JsonStructs",
 	"Description": "UProperty Serialization helper Lib",
 	"Category": "Modding",
@@ -26,7 +26,8 @@
 		{
 			"Name": "SML",
 			"Enabled": true,
-			"SemVersion": ">=3.6.0"
+			"SemVersion": "^3.8.0"
 		}
-	]
+	],
+	"GameVersion": ">=365306"
 }
