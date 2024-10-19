@@ -468,7 +468,12 @@ void UJsonStructBPLib::Conv_JsonValueToFProperty(TSharedPtr<FJsonValue> json, FP
 						else
 						{
 							UObject* Template = UObject::GetArchetypeFromRequiredInfo(InnerBPClass, Outer, *NameValue, ObjectLoadFlags);
-							UObject* Constructed = StaticConstructObject_Internal(InnerBPClass, Outer, *NameValue, ObjectLoadFlags, EInternalObjectFlags::None, Template);
+							FStaticConstructObjectParameters Params(InnerBPClass);
+							Params.Outer = Outer;
+							Params.Name = *NameValue;
+							Params.SetFlags = ObjectLoadFlags;
+							Params.Template = Template;
+							UObject* Constructed = StaticConstructObject_Internal(Params);
 							if (DoLog)
 								Log(FString("Overwrite FObjectProperty: ").Append(Prop->GetName()).Append(" Constructed new Object of Class").Append(KeyValue), 0);
 							Conv_JsonObjectToUStruct(Obj, InnerBPClass, Constructed, Outer);
