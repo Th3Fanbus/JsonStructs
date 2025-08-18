@@ -155,7 +155,7 @@ void UJsonStructBPLib::Conv_JsonValueToFProperty(TSharedPtr<FJsonValue> json, FP
 						if (EnumClass) {
 							const TSharedPtr<FJsonValue> ValueObject = json->AsObject()->TryGetField("JS_Value");
 							const TSharedPtr<FJsonValue> Byte = json->AsObject()->TryGetField("JS_Byte");
-							auto ByteValue = ByteProp->GetPropertyValue(Ptr);
+							uint8 ByteValue = ByteProp->GetPropertyValue(Ptr);
 							uint8 NewValue = Byte->AsNumber();
 							if (NewValue != ByteValue) {
 								if (DoLog)
@@ -557,7 +557,7 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::Conv_FPropertyToJsonValue(FProperty* Pr
 			JsonObject->SetField("JS_Class", Key);
 
 			// Everything that is streamable or AssetUserData ( aka Mesh's and Textures etc ) will be skipped
-			for (auto& i : BaseClass->Interfaces) {
+			for (const auto& i : BaseClass->Interfaces) {
 				if (i.Class == UInterface_AssetUserData::StaticClass() || i.Class == UStreamableRenderAsset::StaticClass()) {
 					JsonObject->SetField("JS_Object", Value);
 					const TSharedPtr<FJsonValueObject> Obj = MakeShared<FJsonValueObject>(JsonObject);
@@ -580,7 +580,7 @@ TSharedPtr<FJsonValue> UJsonStructBPLib::Conv_FPropertyToJsonValue(FProperty* Pr
 				USceneComponent* Scene = Cast<USceneComponent>(ObjectValue);
 				if (Scene && Scene->GetAttachmentRoot() == ObjectValue) {
 					TArray<USceneComponent*> arr = Scene->GetAttachChildren();
-					for (auto i : arr) {
+					for (USceneComponent* i : arr) {
 						RecursionArray.Add(i);
 						ChildObj->Values.Add(i->GetName(),
 											 MakeShared<FJsonValueObject>(Conv_UStructToJsonObject(i->GetClass(), i,
@@ -979,7 +979,7 @@ bool UJsonStructBPLib::SetClassDefaultsFromJsonString(const FString JsonString, 
 		Object = BaseClass->GetDefaultObject();
 	}
 
-	for (auto Field : Result->Values) {
+	for (const auto& Field : Result->Values) {
 		if (FProperty* Prop = BaseClass->FindPropertyByName(*Field.Key)) {
 			Conv_JsonValueToFProperty(Field.Value, Prop, Prop->ContainerPtrToValuePtr<void>(Object), Object);
 		}

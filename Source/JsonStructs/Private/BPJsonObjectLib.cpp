@@ -89,7 +89,7 @@ TArray<FBPJsonObject> UBPJsonObjectLib::Conv_BPJsonObjectToBPJsonObjectArray(con
 	TArray<FBPJsonObject> ValueFields;
 	if (Object.JsonType == BPJSON_Object || Object.JsonType == BPJSON_Array) {
 		if (Object.InnerObj.IsValid() && Object.FieldName == "") {
-			for (auto Field : Object.InnerObj->Values) {
+			for (const auto& Field : Object.InnerObj->Values) {
 				const TSharedPtr<FJsonValue> InnerField = Object.InnerObj->TryGetField(Field.Key);
 				if (InnerField->Type != EJson::Null && InnerField->Type != EJson::None) {
 					ValueFields.Add(FBPJsonObject(FromEJson(InnerField->Type), Object.InnerObj, Field.Key));
@@ -101,7 +101,7 @@ TArray<FBPJsonObject> UBPJsonObjectLib::Conv_BPJsonObjectToBPJsonObjectArray(con
 					const TSharedPtr<FJsonValue> Val = *Object.InnerObj->Values.Find(Object.FieldName);
 					TSharedPtr<FJsonObject> ObjectValue = Val->AsObject();
 					if (ObjectValue.IsValid()) {
-						for (auto Field : ObjectValue->Values) {
+						for (const auto& Field : ObjectValue->Values) {
 							const TSharedPtr<FJsonValue> InnerField = ObjectValue->TryGetField(Field.Key);
 							if (InnerField->Type != EJson::Null && InnerField->Type != EJson::None) {
 								ValueFields.Add(FBPJsonObject(FromEJson(InnerField->Type), ObjectValue, Field.Key));
@@ -111,10 +111,9 @@ TArray<FBPJsonObject> UBPJsonObjectLib::Conv_BPJsonObjectToBPJsonObjectArray(con
 				} else if (Object.JsonType == BPJSON_Array) {
 					const TSharedPtr<FJsonValue> Val = *Object.InnerObj->Values.Find(Object.FieldName);
 					if (Val->Type == EJson::Array) {
-						auto ObjectArray = Val->AsArray();
 						TSharedPtr<FJsonObject> JsonObject = MakeShared<FJsonObject>();
 						int32 Ind = 0;
-						for (auto Field : ObjectArray) {
+						for (const TSharedPtr<FJsonValue> Field : Val->AsArray()) {
 							if (Field->Type != EJson::Null && Field->Type != EJson::None) {
 								JsonObject->Values.Add(FString::FromInt(Ind), Field);
 								ValueFields.Add(FBPJsonObject(FromEJson(Field->Type), JsonObject, FString::FromInt(Ind)));
@@ -136,11 +135,11 @@ TArray<FString> UBPJsonObjectLib::Conv_BPJsonObjectToStringArray(const FBPJsonOb
 		if (Obj.InnerObj.IsValid()) {
 			if (Obj.InnerObj->Values.Contains(Obj.FieldName)) {
 				const TSharedPtr<FJsonValue> InnerField = Obj.InnerObj->TryGetField(Obj.FieldName);
-				for (auto i : InnerField->AsObject()->Values) {
-					Fields.Add(i.Key);
+				for (const auto& Field : InnerField->AsObject()->Values) {
+					Fields.Add(Field.Key);
 				}
 			} else {
-				for (auto Field : Obj.InnerObj->Values) {
+				for (const auto& Field : Obj.InnerObj->Values) {
 					Fields.Add(Field.Key);
 				}
 			}
@@ -149,7 +148,7 @@ TArray<FString> UBPJsonObjectLib::Conv_BPJsonObjectToStringArray(const FBPJsonOb
 		if (Obj.InnerObj.IsValid()) {
 			const TSharedPtr<FJsonValue> InnerField = Obj.InnerObj->TryGetField(Obj.FieldName);
 			int32 Ind = 0;
-			for (auto Field : InnerField->AsArray()) {
+			for (const TSharedPtr<FJsonValue> Field : InnerField->AsArray()) {
 				Fields.Add(FString::FromInt(Ind));
 				Ind = Ind + 1;
 			}

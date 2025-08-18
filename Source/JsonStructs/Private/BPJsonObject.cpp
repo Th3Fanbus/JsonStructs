@@ -30,8 +30,7 @@ FString FBPJsonObject::GetJsonStringField(const FString Name, const bool SearchN
 					return Object->GetStringField(Name);
 				}
 			} else if (Val->Type == EJson::Array) {
-				const TArray<TSharedPtr<FJsonValue>>& Array = Val->AsArray();
-				for (const TSharedPtr<FJsonValue>& Element : Array) {
+				for (const TSharedPtr<FJsonValue> Element : Val->AsArray()) {
 					if (Element->Type == EJson::Object) {
 						if (Element->AsObject()->HasField(Name)) {
 							return Element->AsObject()->GetStringField(Name);
@@ -68,8 +67,7 @@ float FBPJsonObject::GetJsonNumberField(const FString Name, const bool SearchNes
 						return NestedObjectField->AsNumber();
 				}
 			} else if (Val->Type == EJson::Array) {
-				auto& NestedArray = Val->AsArray();
-				for (auto& Element : NestedArray) {
+				for (const TSharedPtr<FJsonValue> Element : Val->AsArray()) {
 					if (Element->AsObject()->HasField(Name)) {
 						const TSharedPtr<FJsonValue> NestedObjectField = Element->AsObject()->TryGetField(Name);
 						if (NestedObjectField->Type == EJson::Number)
@@ -87,7 +85,7 @@ void FBPJsonObject::SetJsonStringField(const FString Name, const FString Value) 
 	if (!InnerObj)
 		return;
 	if (InnerObj->Values.Contains(Name)) {
-		auto val = *InnerObj->Values.Find(Name);
+		TSharedPtr<FJsonValue> val = *InnerObj->Values.Find(Name);
 		if (val->Type == EJson::String) {
 			const TSharedPtr<FJsonValueString> JsonObject = MakeShared<FJsonValueString>(Value);
 			val = JsonObject;
@@ -159,7 +157,7 @@ float FBPJsonObject::AsNumber() const
 	if (Val->Type == EJson::Object) {
 		if (Val->AsObject()) {
 			if (Val->AsObject()->Values.Num() == 1) {
-				for (auto& i : Val->AsObject()->Values) {
+				for (const auto& i : Val->AsObject()->Values) {
 					if (i.Value->Type == EJson::Number)
 						return i.Value->AsNumber();
 					else
