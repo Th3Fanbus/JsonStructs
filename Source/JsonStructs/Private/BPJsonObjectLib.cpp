@@ -7,43 +7,21 @@ EBPJson UBPJsonObjectLib::FromEJson(const EJson Value)
 {
 	switch (Value) {
 	case EJson::Array:
-	{
 		return EBPJson::BPJSON_Array;
-		break;
-	}
 	case EJson::Boolean:
-	{
 		return EBPJson::BPJSON_Boolean;
-		break;
-	}
 	case EJson::None:
-	{
 		return EBPJson::BPJSON_None;
-		break;
-	}
 	case EJson::Null:
-	{
 		return EBPJson::BPJSON_Null;
-		break;
-	}
 	case EJson::Number:
-	{
 		return EBPJson::BPJSON_Number;
-		break;
-	}
 	case EJson::Object:
-	{
 		return EBPJson::BPJSON_Object;
-		break;
-	}
 	case EJson::String:
-	{
 		return EBPJson::BPJSON_String;
-		break;
-	}
 	default:
 		return EBPJson::BPJSON_Null;
-		break;
 	}
 }
 
