@@ -69,9 +69,9 @@ float FBPJsonObject::GetJsonNumberField(const FString Name, const bool SearchNes
 				}
 			} else if (Val->Type == EJson::Array) {
 				auto& NestedArray = Val->AsArray();
-				for (auto& NestedArrayElement : NestedArray) {
-					if (Val->AsObject()->HasField(Name)) {
-						const TSharedPtr<FJsonValue> NestedObjectField = Val->AsObject()->TryGetField(Name);
+				for (auto& Element : NestedArray) {
+					if (Element->AsObject()->HasField(Name)) {
+						const TSharedPtr<FJsonValue> NestedObjectField = Element->AsObject()->TryGetField(Name);
 						if (NestedObjectField->Type == EJson::Number)
 							return NestedObjectField->AsNumber();
 					}
