@@ -6,30 +6,22 @@ public class JsonStructs : ModuleRules
 {
 	public JsonStructs(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
+		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		CppStandard = CppStandardVersion.Cpp20;
-		
-				
-		PublicDependencyModuleNames.AddRange(
-			new string[]
-			{
-				"Core",
-				// ... add other public dependencies that you statically link with here ...
-			}
-			);
-			
-		
-		PrivateDependencyModuleNames.AddRange(
-			new string[]
-			{
-				"CoreUObject",
-				"Engine",
-				"Slate",
-				"SlateCore",
-				"Json",
-				"AssetRegistry"
-				// ... add private dependencies that you statically link with here ...	
-			}
-			);
+
+		PublicDependencyModuleNames.AddRange(new[] {
+			"Core",
+			// ... add other public dependencies that you statically link with here ...
+		});
+
+		PrivateDependencyModuleNames.AddRange(new[] {
+			"CoreUObject",
+			"Engine",
+			"Slate",
+			"SlateCore",
+			"Json",
+			"AssetRegistry"
+			// ... add private dependencies that you statically link with here ...
+		});
 	}
 }

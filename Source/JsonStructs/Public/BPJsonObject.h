@@ -6,10 +6,6 @@
 #include "Dom/JsonValue.h" 
 #include "BPJsonObject.generated.h"
 
-/**
- * 
- */
-
 UENUM(BlueprintType)
 enum EBPJson
 {
@@ -22,21 +18,19 @@ enum EBPJson
 	BPJSON_Object
 };
 
-
-
 USTRUCT(BlueprintType)
 struct JSONSTRUCTS_API FBPJsonObject
 {
 	GENERATED_BODY()
 
 public:
-	FBPJsonObject(); ;
+	FBPJsonObject();
 	FBPJsonObject(EBPJson JsonTypeIn, TSharedPtr<FJsonObject> JsonObject, FString FieldNameIn);
-	
+
 	FString GetJsonStringField(const FString Name, bool SearchNested = false) const;
 	float GetJsonNumberField(const FString Name, bool SearchNested = false) const;
 
-	TSharedPtr<FJsonObject>  InnerObj;
+	TSharedPtr<FJsonObject> InnerObj;
 	FString FieldName;
 	EBPJson JsonType;
 
@@ -49,5 +43,4 @@ public:
 
 	void SetJsonStringField(const FString Name, const FString Value) const;
 	void SetJsonNumberField(const FString Name, const float Value) const;
-	
 };
