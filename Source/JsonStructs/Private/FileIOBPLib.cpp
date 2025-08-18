@@ -1,35 +1,40 @@
 #include "FileIOBPLib.h"
 #include "Algo/Reverse.h"
 
-void UFileIOBPLib::WriteStringToFile(FString Path, FString resultString, bool Relative)
+static bool GetFilePath(FString& OutFullPath, const FString& Path, bool Relative)
 {
-#if WITH_EDITOR 
-	FFileHelper::SaveStringToFile(resultString, Relative ? *(FPaths::ProjectDir() + Path) : *Path);
+#if WITH_EDITOR
+	OutFullPath = Relative ? (FPaths::ProjectDir() + Path) : Path;
+	return true;
 #else
 	const FString AbsoluteRootPath = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir());
 	const FString AbsolutePath = AbsoluteRootPath + TEXT("Mods/") + Path;
-	if (!AbsolutePath.Contains(TEXT(".."))) {
-		FFileHelper::SaveStringToFile(resultString, *AbsolutePath);
-	} else {
+	if (AbsolutePath.Contains(TEXT(".."))) {
 		UE_LOG(LogTemp, Error, TEXT("Absolute or escaping Paths are not allowed in Runtime"));
+		return false;
+	} else {
+		OutFullPath = AbsolutePath;
+		return true;
 	}
 #endif
 }
 
+void UFileIOBPLib::WriteStringToFile(FString Path, FString resultString, bool Relative)
+{
+	FString OutFullPath;
+	if (GetFilePath(OutFullPath, Path, Relative)) {
+		FFileHelper::SaveStringToFile(resultString, *OutFullPath);
+	}
+}
+
 bool UFileIOBPLib::LoadStringFromFile(FString& String, FString Path, bool Relative)
 {
-#if WITH_EDITOR 
-	return FFileHelper::LoadFileToString(String, Relative ? *(FPaths::ProjectDir() + Path) : *Path);
-#else
-	const FString AbsoluteRootPath = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir());
-	const FString AbsolutePath = FPaths::ConvertRelativePathToFull(Path);
-	if (AbsolutePath.StartsWith(AbsoluteRootPath)) {
-		return FFileHelper::LoadFileToString(String, *AbsolutePath);
-	} else {
-		return false;
-		UE_LOG(LogTemp, Error, TEXT("Absolute or escaping Paths are not allowed in Runtime"));
+	FString OutFullPath;
+	if (GetFilePath(OutFullPath, Path, Relative)) {
+		FFileHelper::LoadFileToString(String, *OutFullPath);
+		return true;
 	}
-#endif
+	return false;
 }
 
 bool UFileIOBPLib::GetDirectoriesInPath(const FString& FullPathOfBaseDir, TArray<FString>& DirsOut, const FString& NotContainsStr, bool Recursive, const FString& ContainsStr)
