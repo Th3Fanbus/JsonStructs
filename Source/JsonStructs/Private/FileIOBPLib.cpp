@@ -1,4 +1,5 @@
 #include "FileIOBPLib.h"
+#include "Algo/Reverse.h"
 
 void UFileIOBPLib::WriteStringToFile(FString Path, FString resultString, bool Relative)
 {
@@ -80,26 +81,16 @@ bool UFileIOBPLib::GetDirectoriesInPath(const FString& FullPathOfBaseDir, TArray
 
 void UFileIOBPLib::String_Sort(UPARAM(ref) TArray<FString>& Array_To_Sort, bool Descending, bool FilterToUnique, TArray<FString>& Sorted_Array)
 {
+	// TODO: What happens if FilterToUnique is false?
 	if (FilterToUnique) {
-		for (auto& i : Array_To_Sort) {
-			if (FilterToUnique) {
-				if (!Sorted_Array.Contains(i)) {
-					Sorted_Array.Add(i);
-				}
-			}
+		for (const auto& i : Array_To_Sort) {
+			Sorted_Array.AddUnique(i);
 		}
 	}
-	Sorted_Array.Sort();               // Sort array using built in function (sorts A-Z)
+	Sorted_Array.Sort(); // Sort array using built in function (sorts A-Z)
 
 	if (Descending == true) {
-		TArray<FString> NewArray;      // Define "temp" holding array
-		int x = Sorted_Array.Num() - 1;
-
-		while (x > -1) {
-			NewArray.Add(Sorted_Array[x]); // loop through A-Z sorted array and remove element from back and place it in beginning of "temp" array
-			--x;
-		}
-		Sorted_Array = NewArray;   // Set reference array to "temp" array order, array is now Z-A
+		Algo::Reverse(Sorted_Array); // array is now Z-A
 	}
 }
 
