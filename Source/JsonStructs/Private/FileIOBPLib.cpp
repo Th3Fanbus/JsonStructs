@@ -43,30 +43,20 @@ bool UFileIOBPLib::GetDirectoriesInPath(const FString& FullPathOfBaseDir, TArray
 
 	auto FilenamesVisitor = MakeDirectoryVisitor([&](const TCHAR* FilenameOrDirectory, bool bIsDirectory) {
 		if (bIsDirectory) {
+			Str = FPaths::GetCleanFilename(FilenameOrDirectory);
+
+			bool ShouldAdd;
+
 			//Using a Contains Filter?
 			if (ContainsStr != "") {
-				Str = FPaths::GetCleanFilename(FilenameOrDirectory);
-				//Only if Directory Contains Str
-				if (Str.Contains(ContainsStr)) {
-					if (Recursive) {
-						DirsOut.Push(FilenameOrDirectory); //need whole path for recursive
-					} else {
-						DirsOut.Push(Str);
-					}
-				}
+				ShouldAdd = Str.Contains(ContainsStr); //Only if Directory Contains Str
 			} else if (NotContainsStr != "") {
-				if (!Str.Contains(NotContainsStr)) {
-					if (Recursive) {
-						DirsOut.Push(FilenameOrDirectory); //need whole path for recursive
-					} else {
-						DirsOut.Push(Str);
-					}
-				}
+				ShouldAdd = !Str.Contains(NotContainsStr);
 			} else {
-				//Get ALL Directories!
+				ShouldAdd = true; //Get ALL Directories!
+			}
 
-				//Just the Directory
-				Str = FPaths::GetCleanFilename(FilenameOrDirectory);
+			if (ShouldAdd) {
 				if (Recursive) {
 					DirsOut.Push(FilenameOrDirectory); //need whole path for recursive
 				} else {
@@ -108,23 +98,19 @@ bool UFileIOBPLib::GetFilesInPath(const FString& FullPathOfBaseDir, TArray<FStri
 	auto FilenamesVisitor = MakeDirectoryVisitor([&](const TCHAR* FilenameOrDirectory, bool bIsDirectory) {
 		//Files
 		if (!bIsDirectory) {
-			//Filter by Extension
-			if (FileExt != "") {
-				Str = FPaths::GetCleanFilename(FilenameOrDirectory);
+			Str = FPaths::GetCleanFilename(FilenameOrDirectory);
 
+			bool ShouldAdd;
+
+			if (FileExt != "") {
 				//Filter by Extension
-				if (FPaths::GetExtension(Str).ToLower() == FileExt) {
-					if (Recursive) {
-						FilenamesOut.Push(FilenameOrDirectory); //need whole path for recursive
-					} else {
-						FilenamesOut.Push(Str);
-					}
-				}
+				ShouldAdd = FPaths::GetExtension(Str).ToLower() == FileExt;
 			} else {
 				//Include All Filenames!
+				ShouldAdd = true;
+			}
 
-				//Just the Directory
-				Str = FPaths::GetCleanFilename(FilenameOrDirectory);
+			if (ShouldAdd) {
 				if (Recursive) {
 					FilenamesOut.Push(FilenameOrDirectory); //need whole path for recursive
 				} else {
